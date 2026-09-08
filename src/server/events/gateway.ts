@@ -515,6 +515,35 @@ export async function processEvent(params: {
     { metricType: 'actions_executed', dimension: '', value: actionResults.filter((a) => a.status === 'executed').length },
   ])
 
+  // Outbound webhooks (§99/§347): fan out to subscribed endpoints.
+  // Failures never affect ingestion (delivery is an async outbox).
+  try {
+    const { dispatchWebhooks } = await import('../webhooks/service')
+    const actor = rawContext.user as { id?: string; external_id?: string } | undefined
+    await dispatchWebhooks({
+      projectId: params.projectId,
+      environmentId: params.environmentId,
+      eventType: params.eventType,
+      eventId: params.eventRowId,
+      payload: {
+        id: params.eventId,
+        type: params.eventType,
+        occurred_at: params.occurredAt.toISOString(),
+        project_id: params.projectId,
+        environment_id: params.environmentId,
+        user: actor?.id ? { id: actor.id, external_id: actor.external_id ?? '' } : null,
+        data: {
+          payload: params.payload,
+          actions_executed: actionResults.filter((a) => a.status === 'executed').length,
+          rules_matched: ruleOutcomes.filter((o) => o.matched).length,
+          trace_id: traceId,
+        },
+      },
+    })
+  } catch {
+    /* webhook fanout must never break ingestion */
+  }
+
   return {
     eventId: params.eventId,
     status: 'processed',

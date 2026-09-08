@@ -1,12 +1,14 @@
 /**
  * GET /api/v1/flags — Feature flag + experiment variant evaluation for
- * the calling user (Section 36). Also returns remote config values.
+ * the calling user (Section 36). Also returns remote config values,
+ * personalized per user via targeting rules (Section 34).
  */
 import { NextRequest } from 'next/server'
 import { json, apiError, requireApiKey, requireScope } from '@/lib/api'
 import { evaluateFeatureFlags, assignExperiments, getRemoteConfigs } from '@/server/segments/service'
 import { db } from '@/lib/db'
 import { evaluateUserSegments } from '@/server/segments/service'
+import { personalizeConfig } from '@/server/personalization/service'
 
 export async function GET(req: NextRequest) {
   try {
@@ -66,7 +68,15 @@ export async function GET(req: NextRequest) {
       getRemoteConfigs(auth.projectId, auth.environmentId),
     ])
 
-    return json({ flags, experiments, config, segments: segments.names })
+    // Personalization layer (§34): targeted overrides of base config values
+    const { config: personalizedConfig, applied } = await personalizeConfig({
+      projectId: auth.projectId,
+      environmentId: auth.environmentId,
+      appUserId: user.id,
+      config,
+    })
+
+    return json({ flags, experiments, config: personalizedConfig, config_overridden: applied, segments: segments.names })
   } catch (e) {
     return apiError(e)
   }

@@ -279,6 +279,35 @@ registerAction('send_notification', 'notifications', 'Send a templated or direct
   }
 })
 
+// grant_entitlement — monetization domain (§40): give a user an access right
+registerAction('grant_entitlement', 'monetization', 'Grant an entitlement (access right) to a user', async (params, ctx) => {
+  const code = requireString(params, 'code')
+  const { grantEntitlement } = await import('../monetization/service')
+  const durationDays = params.days === undefined || params.days === null ? null : Number(params.days)
+  if (durationDays !== null && (!Number.isFinite(durationDays) || durationDays <= 0)) {
+    throw new PlatformError({
+      code: 'ACTION_INVALID_PARAM',
+      category: 'engine',
+      message: 'Entitlement "days" must be a positive number or omitted for permanent.',
+    })
+  }
+  const res = await grantEntitlement({
+    projectId: ctx.projectId,
+    environmentId: ctx.environmentId,
+    appUserId: ctx.appUserId,
+    code,
+    source: ctx.source === 'admin' ? 'grant' : ctx.source,
+    sourceRef: ctx.reference,
+    durationDays,
+    metadata: { via: 'action', correlationId: ctx.correlationId ?? null },
+  })
+  return {
+    detail: `entitlement "${code}" ${res.renewed ? 'renewed' : 'granted'}${res.entitlement.endsAt ? ` until ${res.entitlement.endsAt.toISOString().slice(0, 10)}` : ' (permanent)'}`,
+    before: { granted: res.renewed },
+    after: { code, status: res.entitlement.status, endsAt: res.entitlement.endsAt },
+  }
+})
+
 // set_user_attribute — identity domain
 registerAction('set_user_attribute', 'identity', 'Set a user profile attribute', async (params, ctx) => {
   const key = requireString(params, 'key')

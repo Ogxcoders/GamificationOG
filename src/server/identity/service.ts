@@ -266,6 +266,13 @@ export async function getUserStateSnapshot(params: {
   const varMap: Record<string, unknown> = {}
   for (const v of variables) varMap[v.key] = parseJson<unknown>(v.valueJson, null)
 
+  // Monetization state (§39/§40): subscriptions + entitlements
+  const { getUserEntitlements, getUserSubscriptions } = await import('../monetization/service')
+  const [entitlements, subscriptions] = await Promise.all([
+    getUserEntitlements(params.projectId, params.environmentId, user.id),
+    getUserSubscriptions(params.projectId, params.environmentId, user.id),
+  ])
+
   return {
     user: {
       external_id: user.externalId,
@@ -281,6 +288,8 @@ export async function getUserStateSnapshot(params: {
     streaks,
     notifications,
     variables: varMap,
+    entitlements,
+    subscriptions,
   }
 }
 

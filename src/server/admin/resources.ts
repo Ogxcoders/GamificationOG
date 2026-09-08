@@ -323,6 +323,120 @@ export const RESOURCES: Record<string, ResourceConfig> = {
       requireStatus(d)
     },
   },
+  products: {
+    delegate: 'product',
+    auditType: 'product',
+    fields: ['code', 'name', 'description', 'type', 'priceTiersJson', 'entitlementCode', 'status', 'metadataJson'],
+    requiredOnCreate: ['code', 'name'],
+    uniqueOn: ['code'],
+    validate: (d) => {
+      if (d.code !== undefined && !/^[a-z][a-z0-9_]*$/.test(String(d.code))) {
+        throw new PlatformError({ code: 'INVALID_CODE', category: 'validation', message: 'Product code must be lowercase snake_case.' })
+      }
+      if (d.type !== undefined && !['subscription', 'one_time', 'consumable', 'entitlement'].includes(String(d.type))) {
+        throw new PlatformError({ code: 'INVALID_TYPE', category: 'validation', message: 'Product type must be subscription/one_time/consumable/entitlement.' })
+      }
+      if (d.priceTiersJson !== undefined) {
+        const tiers = parseJson<Array<{ tier: string; amount: number; currency: string }>>(String(d.priceTiersJson), null as never)
+        if (tiers === null || !Array.isArray(tiers) || tiers.length === 0) {
+          throw new PlatformError({ code: 'INVALID_TIERS', category: 'validation', message: 'priceTiersJson must be a non-empty JSON array [{ tier, amount, currency }].' })
+        }
+        for (const t of tiers) {
+          if (!t.tier || typeof t.amount !== 'number' || t.amount < 0 || !t.currency) {
+            throw new PlatformError({ code: 'INVALID_TIERS', category: 'validation', message: 'Each tier needs tier (string), amount (number >= 0), currency (string).' })
+          }
+        }
+      }
+      if (d.type === 'entitlement' && d.entitlementCode === undefined) {
+        // allow but warn via validation only when explicitly creating entitlement-type without code
+        if (d.name !== undefined && d.entitlementCode === null) {
+          throw new PlatformError({ code: 'MISSING_ENTITLEMENT_CODE', category: 'validation', message: 'Entitlement-type products need entitlementCode.' })
+        }
+      }
+      requireStatus(d)
+    },
+  },
+  offers: {
+    delegate: 'offer',
+    auditType: 'offer',
+    fields: ['code', 'name', 'description', 'productCode', 'pricingJson', 'targetingJson', 'priority', 'startsAt', 'endsAt', 'status', 'metadataJson'],
+    requiredOnCreate: ['code', 'name', 'productCode'],
+    uniqueOn: ['code'],
+    validate: (d) => {
+      if (d.code !== undefined && !/^[a-z][a-z0-9_]*$/.test(String(d.code))) {
+        throw new PlatformError({ code: 'INVALID_CODE', category: 'validation', message: 'Offer code must be lowercase snake_case.' })
+      }
+      if (d.pricingJson !== undefined && String(d.pricingJson) !== '{}') {
+        try {
+          JSON.parse(String(d.pricingJson))
+        } catch {
+          throw new PlatformError({ code: 'INVALID_JSON', category: 'validation', message: 'pricingJson must be valid JSON.' })
+        }
+      }
+      if (d.targetingJson !== undefined && String(d.targetingJson) !== '{}') {
+        const tree = parseJson<ConditionNode | null>(String(d.targetingJson), null)
+        if (tree === null) throw new PlatformError({ code: 'INVALID_JSON', category: 'validation', message: 'targetingJson must be valid JSON.' })
+        const r = validateConditionTree(tree)
+        if (!r.valid) throw new PlatformError({ code: 'INVALID_CONDITION', category: 'validation', message: r.error ?? 'Invalid targeting condition tree.' })
+      }
+      if (d.startsAt !== undefined && d.endsAt !== undefined && new Date(String(d.endsAt)) <= new Date(String(d.startsAt))) {
+        throw new PlatformError({ code: 'INVALID_PERIOD', category: 'validation', message: 'Offer end must be after start.' })
+      }
+      requireStatus(d)
+    },
+  },
+  paywalls: {
+    delegate: 'paywall',
+    auditType: 'paywall',
+    fields: ['code', 'name', 'entitlementCode', 'offersJson', 'targetingJson', 'configJson', 'status', 'metadataJson'],
+    requiredOnCreate: ['code', 'name', 'entitlementCode'],
+    uniqueOn: ['code'],
+    validate: (d) => {
+      if (d.code !== undefined && !/^[a-z][a-z0-9_]*$/.test(String(d.code))) {
+        throw new PlatformError({ code: 'INVALID_CODE', category: 'validation', message: 'Paywall code must be lowercase snake_case.' })
+      }
+      if (d.targetingJson !== undefined && String(d.targetingJson) !== '{}') {
+        const tree = parseJson<ConditionNode | null>(String(d.targetingJson), null)
+        if (tree === null) throw new PlatformError({ code: 'INVALID_JSON', category: 'validation', message: 'targetingJson must be valid JSON.' })
+        const r = validateConditionTree(tree)
+        if (!r.valid) throw new PlatformError({ code: 'INVALID_CONDITION', category: 'validation', message: r.error ?? 'Invalid targeting condition tree.' })
+      }
+      if (d.offersJson !== undefined && String(d.offersJson) !== '[]') {
+        try {
+          const arr = JSON.parse(String(d.offersJson))
+          if (!Array.isArray(arr)) throw new Error('not array')
+        } catch {
+          throw new PlatformError({ code: 'INVALID_JSON', category: 'validation', message: 'offersJson must be a JSON array of offer codes.' })
+        }
+      }
+      requireStatus(d)
+    },
+  },
+  'personalization-rules': {
+    delegate: 'personalizationRule',
+    auditType: 'personalization_rule',
+    fields: ['key', 'valueJson', 'targetingJson', 'priority', 'description', 'status'],
+    requiredOnCreate: ['key', 'valueJson'],
+    validate: (d) => {
+      if (d.valueJson !== undefined) {
+        try {
+          JSON.parse(String(d.valueJson))
+        } catch {
+          throw new PlatformError({ code: 'INVALID_JSON', category: 'validation', message: 'valueJson must be valid JSON.' })
+        }
+      }
+      if (d.targetingJson !== undefined && String(d.targetingJson) !== '{}') {
+        const tree = parseJson<ConditionNode | null>(String(d.targetingJson), null)
+        if (tree === null) throw new PlatformError({ code: 'INVALID_JSON', category: 'validation', message: 'targetingJson must be valid JSON.' })
+        const r = validateConditionTree(tree)
+        if (!r.valid) throw new PlatformError({ code: 'INVALID_CONDITION', category: 'validation', message: r.error ?? 'Invalid targeting condition tree.' })
+      }
+      if (d.priority !== undefined && (Number(d.priority) < 0 || Number(d.priority) > 10000)) {
+        throw new PlatformError({ code: 'INVALID_PRIORITY', category: 'validation', message: 'Priority must be 0-10000.' })
+      }
+      requireStatus(d)
+    },
+  },
   seasons: {
     delegate: 'season',
     auditType: 'season',

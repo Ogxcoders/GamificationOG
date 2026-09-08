@@ -20,75 +20,78 @@ datasource db {
 // =====================================================================
 
 model Organization {
-  id          String   @id @default(cuid())
-  name        String
-  slug        String   @unique
-  status      String   @default("active") // active | suspended | archived
-  metadataJson String  @default("{}")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  workspaces  Workspace[]
+  id           String      @id @default(cuid())
+  name         String
+  slug         String      @unique
+  status       String      @default("active") // active | suspended | archived
+  metadataJson String      @default("{}")
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  workspaces   Workspace[]
 }
 
 model Workspace {
-  id             String   @id @default(cuid())
+  id             String       @id @default(cuid())
   organizationId String
   name           String
   slug           String
-  status         String   @default("active")
-  metadataJson   String   @default("{}")
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  status         String       @default("active")
+  metadataJson   String       @default("{}")
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   projects       Project[]
+
   @@unique([organizationId, slug])
   @@index([organizationId])
 }
 
 model Project {
-  id           String   @id @default(cuid())
-  workspaceId  String
-  name         String
-  slug         String
-  description  String?
-  status       String   @default("active")
-  timezone     String   @default("UTC")
-  metadataJson String   @default("{}")
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  workspace         Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  environments      Environment[]
-  eventSchemas      EventSchema[]
-  rules             Rule[]
-  progressionTracks ProgressionTrack[]
-  challenges        Challenge[]
-  achievements      Achievement[]
-  rewards           Reward[]
-  currencies        Currency[]
-  items             Item[]
-  leaderboards      Leaderboard[]
-  segments          Segment[]
-  featureFlags      FeatureFlag[]
-  remoteConfigs     RemoteConfig[]
-  experiments       Experiment[]
-  streaks           Streak[]
+  id                    String                 @id @default(cuid())
+  workspaceId           String
+  name                  String
+  slug                  String
+  description           String?
+  status                String                 @default("active")
+  timezone              String                 @default("UTC")
+  metadataJson          String                 @default("{}")
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  workspace             Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  environments          Environment[]
+  eventSchemas          EventSchema[]
+  rules                 Rule[]
+  progressionTracks     ProgressionTrack[]
+  challenges            Challenge[]
+  achievements          Achievement[]
+  rewards               Reward[]
+  currencies            Currency[]
+  items                 Item[]
+  leaderboards          Leaderboard[]
+  segments              Segment[]
+  featureFlags          FeatureFlag[]
+  remoteConfigs         RemoteConfig[]
+  experiments           Experiment[]
+  streaks               Streak[]
   notificationTemplates NotificationTemplate[]
-  apiKeys           ApiKey[]
-  admins            ProjectAdmin[]
-  seasons           Season[]
+  apiKeys               ApiKey[]
+  admins                ProjectAdmin[]
+  seasons               Season[]
+
   @@unique([workspaceId, slug])
   @@index([workspaceId])
 }
 
 model Environment {
-  id          String   @id @default(cuid())
-  projectId   String
-  name        String // development | staging | production
-  status      String   @default("active")
-  metadataJson String  @default("{}")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id           String   @id @default(cuid())
+  projectId    String
+  name         String // development | staging | production
+  status       String   @default("active")
+  metadataJson String   @default("{}")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
   @@unique([projectId, name])
 }
 
@@ -97,32 +100,36 @@ model Environment {
 // =====================================================================
 
 model AppUser {
-  id             String   @id @default(cuid())
-  projectId      String
-  environmentId  String
-  externalId     String
-  displayName    String?
-  isAnonymous    Boolean  @default(true)
-  attributesJson String   @default("{}")
-  status         String   @default("active") // active | banned | suspended | deleted
-  lastSeenAt     DateTime?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  identities     UserIdentity[]
-  events         Event[]
-  progression    UserProgression[]
-  challengeProgress ChallengeProgress[]
-  userAchievements UserAchievement[]
-  ledger         LedgerTransaction[]
-  walletBalances WalletBalance[]
-  userItems      UserItem[]
-  leaderboardEntries LeaderboardEntry[]
-  userStreaks    UserStreak[]
-  notifications  Notification[]
+  id                    String                 @id @default(cuid())
+  projectId             String
+  environmentId         String
+  externalId            String
+  displayName           String?
+  isAnonymous           Boolean                @default(true)
+  attributesJson        String                 @default("{}")
+  status                String                 @default("active") // active | banned | suspended | deleted
+  lastSeenAt            DateTime?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  identities            UserIdentity[]
+  events                Event[]
+  progression           UserProgression[]
+  challengeProgress     ChallengeProgress[]
+  userAchievements      UserAchievement[]
+  ledger                LedgerTransaction[]
+  walletBalances        WalletBalance[]
+  userItems             UserItem[]
+  leaderboardEntries    LeaderboardEntry[]
+  userStreaks           UserStreak[]
+  notifications         Notification[]
   experimentAssignments ExperimentAssignment[]
-  variables      UserVariable[]
-  decisionTraces DecisionTrace[]
-  sessions       AppSession[]
+  variables             UserVariable[]
+  decisionTraces        DecisionTrace[]
+  sessions              AppSession[]
+  subscriptions         Subscription[]
+  entitlements          Entitlement[]
+  checkoutSessions      CheckoutSession[]
+
   @@unique([projectId, environmentId, externalId])
   @@index([projectId, environmentId])
 }
@@ -135,71 +142,76 @@ model UserIdentity {
   verified          Boolean  @default(false)
   metadataJson      String   @default("{}")
   linkedAt          DateTime @default(now())
-  appUser AppUser @relation(fields: [appUserId], references: [id], onDelete: Cascade)
+  appUser           AppUser  @relation(fields: [appUserId], references: [id], onDelete: Cascade)
+
   @@unique([provider, providerAccountId])
   @@index([appUserId])
 }
 
 model AppSession {
-  id            String   @id @default(cuid())
-  appUserId     String
-  sessionToken  String   @unique
-  deviceInfoJson String  @default("{}")
-  startedAt     DateTime @default(now())
-  lastActiveAt  DateTime @default(now())
-  endedAt       DateTime?
-  appUser AppUser @relation(fields: [appUserId], references: [id], onDelete: Cascade)
+  id             String    @id @default(cuid())
+  appUserId      String
+  sessionToken   String    @unique
+  deviceInfoJson String    @default("{}")
+  startedAt      DateTime  @default(now())
+  lastActiveAt   DateTime  @default(now())
+  endedAt        DateTime?
+  appUser        AppUser   @relation(fields: [appUserId], references: [id], onDelete: Cascade)
+
   @@index([appUserId])
 }
 
 model ApiKey {
-  id            String   @id @default(cuid())
+  id            String    @id @default(cuid())
   projectId     String
   environmentId String
   name          String
   keyPrefix     String
-  keyHash       String   @unique
-  scopesJson    String   @default("[]")
-  status        String   @default("active")
+  keyHash       String    @unique
+  scopesJson    String    @default("[]")
+  status        String    @default("active")
   lastUsedAt    DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  project       Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
   @@index([projectId, environmentId])
 }
 
 model AdminUser {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  name         String
-  passwordHash String
-  role         String   @default("admin") // owner | admin | editor | viewer
-  status       String   @default("active")
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  sessions     AdminSession[]
+  id            String         @id @default(cuid())
+  email         String         @unique
+  name          String
+  passwordHash  String
+  role          String         @default("admin") // owner | admin | editor | viewer
+  status        String         @default("active")
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  sessions      AdminSession[]
   projectAdmins ProjectAdmin[]
 }
 
 model AdminSession {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   userId    String
-  tokenHash String   @unique
+  tokenHash String    @unique
   expiresAt DateTime
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
   ip        String?
   userAgent String?
-  user AdminUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      AdminUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId])
 }
 
 model ProjectAdmin {
-  id        String @id @default(cuid())
+  id        String    @id @default(cuid())
   projectId String
   userId    String
-  role      String @default("editor")
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  user   AdminUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      String    @default("editor")
+  project   Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      AdminUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@unique([projectId, userId])
 }
 
@@ -208,43 +220,45 @@ model ProjectAdmin {
 // =====================================================================
 
 model EventSchema {
-  id            String   @id @default(cuid())
-  projectId     String
-  name          String // e.g. "task.completed"
-  version       Int      @default(1)
-  description   String?
-  payloadSchemaJson String @default("{}") // JSON-schema-lite: { property: { type, required, min, max, enum } }
-  status        String   @default("active")
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id                String   @id @default(cuid())
+  projectId         String
+  name              String // e.g. "task.completed"
+  version           Int      @default(1)
+  description       String?
+  payloadSchemaJson String   @default("{}") // JSON-schema-lite: { property: { type, required, min, max, enum } }
+  status            String   @default("active")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  project           Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
   @@unique([projectId, name, version])
   @@index([projectId, status])
 }
 
 model Event {
-  id             String   @id @default(cuid())
-  eventId        String   @unique // uuid supplied or generated
-  eventType      String
-  eventVersion   Int      @default(1)
-  projectId      String
-  environmentId  String
-  actorId        String? // AppUser id
-  subjectId      String?
-  source         String   @default("api") // web_sdk | android_sdk | ios_sdk | server | api | simulator
-  occurredAt     DateTime
-  receivedAt     DateTime @default(now())
-  correlationId  String?
-  causationId    String?
-  idempotencyKey String?
-  payloadJson    String   @default("{}")
-  metadataJson   String   @default("{}")
-  status         String   @default("received") // received | processing | processed | failed | duplicate | skipped
+  id              String          @id @default(cuid())
+  eventId         String          @unique // uuid supplied or generated
+  eventType       String
+  eventVersion    Int             @default(1)
+  projectId       String
+  environmentId   String
+  actorId         String? // AppUser id
+  subjectId       String?
+  source          String          @default("api") // web_sdk | android_sdk | ios_sdk | server | api | simulator
+  occurredAt      DateTime
+  receivedAt      DateTime        @default(now())
+  correlationId   String?
+  causationId     String?
+  idempotencyKey  String?
+  payloadJson     String          @default("{}")
+  metadataJson    String          @default("{}")
+  status          String          @default("received") // received | processing | processed | failed | duplicate | skipped
   processingError String?
-  isReplay       Boolean  @default(false)
-  appUser        AppUser? @relation(fields: [actorId], references: [id])
-  ruleExecutions RuleExecution[]
-  decisionTraces DecisionTrace[]
+  isReplay        Boolean         @default(false)
+  appUser         AppUser?        @relation(fields: [actorId], references: [id])
+  ruleExecutions  RuleExecution[]
+  decisionTraces  DecisionTrace[]
+
   @@unique([projectId, environmentId, idempotencyKey])
   @@index([projectId, environmentId, eventType, occurredAt])
   @@index([projectId, environmentId, status])
@@ -256,28 +270,29 @@ model Event {
 // =====================================================================
 
 model Rule {
-  id              String   @id @default(cuid())
+  id              String          @id @default(cuid())
   projectId       String
   environmentId   String
   name            String
   description     String?
-  eventType       String   // WHEN
-  conditionsJson  String   @default("{}") // IF
-  actionsJson     String   @default("[]") // THEN [{ type, params }]
-  priority        Int      @default(100)
+  eventType       String // WHEN
+  conditionsJson  String          @default("{}") // IF
+  actionsJson     String          @default("[]") // THEN [{ type, params }]
+  priority        Int             @default(100)
   cooldownSeconds Int? // per user
   frequencyCap    Int? // per user per period
   frequencyPeriod String? // hour | day | week | month
   segmentId       String?
   validFrom       DateTime?
   validTo         DateTime?
-  status          String   @default("active") // draft | active | paused | archived
-  version         Int      @default(1)
-  metadataJson    String   @default("{}")
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  project         Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  status          String          @default("active") // draft | active | paused | archived
+  version         Int             @default(1)
+  metadataJson    String          @default("{}")
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  project         Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
   executions      RuleExecution[]
+
   @@index([projectId, environmentId, eventType, status])
   @@index([projectId, environmentId, priority])
 }
@@ -293,8 +308,9 @@ model RuleExecution {
   error           String?
   durationMs      Int      @default(0)
   executedAt      DateTime @default(now())
-  rule Rule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
-  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  rule            Rule     @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  event           Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
   @@index([ruleId, executedAt])
   @@index([eventId])
 }
@@ -304,33 +320,35 @@ model RuleExecution {
 // =====================================================================
 
 model ProgressionTrack {
-  id             String   @id @default(cuid())
-  projectId      String
-  environmentId  String
-  code           String   @default("default") // track key
-  name           String
-  type           String   @default("linear") // linear | exponential | custom
-  baseXpPerLevel Int      @default(100)
-  growthFactor   Float    @default(1.0)
-  maxLevel       Int      @default(100)
+  id                String            @id @default(cuid())
+  projectId         String
+  environmentId     String
+  code              String            @default("default") // track key
+  name              String
+  type              String            @default("linear") // linear | exponential | custom
+  baseXpPerLevel    Int               @default(100)
+  growthFactor      Float             @default(1.0)
+  maxLevel          Int               @default(100)
   customFormulaJson String? // { "levelFormula": "floor(sqrt(xp/100))" }
-  status         String   @default("active")
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  userProgression UserProgression[]
+  status            String            @default("active")
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  project           Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userProgression   UserProgression[]
+
   @@unique([projectId, environmentId, code])
 }
 
 model UserProgression {
-  id        String   @id @default(cuid())
+  id        String           @id @default(cuid())
   appUserId String
   trackId   String
-  xp        Int      @default(0)
-  level     Int      @default(1)
-  updatedAt DateTime @updatedAt
-  appUser  AppUser         @relation(fields: [appUserId], references: [id], onDelete: Cascade)
-  track    ProgressionTrack @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  xp        Int              @default(0)
+  level     Int              @default(1)
+  updatedAt DateTime         @updatedAt
+  appUser   AppUser          @relation(fields: [appUserId], references: [id], onDelete: Cascade)
+  track     ProgressionTrack @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
   @@unique([appUserId, trackId])
   @@index([trackId, level])
 }
@@ -341,7 +359,8 @@ model UserVariable {
   key       String
   valueJson String
   updatedAt DateTime @updatedAt
-  appUser AppUser @relation(fields: [appUserId], references: [id], onDelete: Cascade)
+  appUser   AppUser  @relation(fields: [appUserId], references: [id], onDelete: Cascade)
+
   @@unique([appUserId, key])
 }
 
@@ -350,28 +369,29 @@ model UserVariable {
 // =====================================================================
 
 model Challenge {
-  id             String   @id @default(cuid())
-  projectId      String
-  environmentId  String
-  name           String
-  description    String?
-  type           String   @default("one_time") // daily | weekly | monthly | one_time | timed | seasonal
-  metricSource   String   @default("event_count") // event_count | event_sum | unique_entities | formula
-  eventType      String
+  id              String              @id @default(cuid())
+  projectId       String
+  environmentId   String
+  name            String
+  description     String?
+  type            String              @default("one_time") // daily | weekly | monthly | one_time | timed | seasonal
+  metricSource    String              @default("event_count") // event_count | event_sum | unique_entities | formula
+  eventType       String
   payloadProperty String? // for event_sum
-  target         Float
-  conditionsJson String   @default("{}")
-  rewardsJson    String   @default("[]") // [{ type, params }]
-  startsAt       DateTime?
-  endsAt         DateTime?
-  repeatability  String   @default("repeatable") // one_time | repeatable
-  segmentId      String?
-  status         String   @default("active")
-  metadataJson   String   @default("{}")
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  progress ChallengeProgress[]
+  target          Float
+  conditionsJson  String              @default("{}")
+  rewardsJson     String              @default("[]") // [{ type, params }]
+  startsAt        DateTime?
+  endsAt          DateTime?
+  repeatability   String              @default("repeatable") // one_time | repeatable
+  segmentId       String?
+  status          String              @default("active")
+  metadataJson    String              @default("{}")
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  project         Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  progress        ChallengeProgress[]
+
   @@index([projectId, environmentId, status])
   @@index([projectId, environmentId, eventType])
 }
@@ -387,8 +407,9 @@ model ChallengeProgress {
   periodKey   String    @default("all") // date bucket for daily/weekly resets
   claimedAt   DateTime?
   updatedAt   DateTime  @updatedAt
-  challenge Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
-  appUser   AppUser    @relation(fields: [appUserId], references: [id], onDelete: Cascade)
+  challenge   Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  appUser     AppUser   @relation(fields: [appUserId], references: [id], onDelete: Cascade)
+
   @@unique([challengeId, appUserId, periodKey])
   @@index([appUserId])
 }
@@ -398,39 +419,41 @@ model ChallengeProgress {
 // =====================================================================
 
 model Achievement {
-  id             String   @id @default(cuid())
-  projectId      String
-  environmentId  String
-  code           String
-  name           String
-  description    String?
-  category       String   @default("general")
-  type           String   @default("one_time") // one_time | repeatable | hidden | progressive | compound
-  conditionsJson String   @default("{}")
-  points         Int      @default(0)
-  icon           String?
-  rewardsJson    String   @default("[]")
-  hidden         Boolean  @default(false)
-  status         String   @default("active")
-  metadataJson   String   @default("{}")
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id               String            @id @default(cuid())
+  projectId        String
+  environmentId    String
+  code             String
+  name             String
+  description      String?
+  category         String            @default("general")
+  type             String            @default("one_time") // one_time | repeatable | hidden | progressive | compound
+  conditionsJson   String            @default("{}")
+  points           Int               @default(0)
+  icon             String?
+  rewardsJson      String            @default("[]")
+  hidden           Boolean           @default(false)
+  status           String            @default("active")
+  metadataJson     String            @default("{}")
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  project          Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
   userAchievements UserAchievement[]
+
   @@unique([projectId, environmentId, code])
   @@index([projectId, environmentId, status])
 }
 
 model UserAchievement {
-  id            String   @id @default(cuid())
+  id            String      @id @default(cuid())
   achievementId String
   appUserId     String
-  progress      Float    @default(0)
-  target        Float    @default(1)
+  progress      Float       @default(0)
+  target        Float       @default(1)
   unlockedAt    DateTime?
-  createdAt     DateTime @default(now())
-  achievement Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
-  appUser     AppUser     @relation(fields: [appUserId], references: [id], onDelete: Cascade)
+  createdAt     DateTime    @default(now())
+  achievement   Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+  appUser       AppUser     @relation(fields: [appUserId], references: [id], onDelete: Cascade)
+
   @@unique([achievementId, appUserId])
   @@index([appUserId])
 }
@@ -440,37 +463,39 @@ model UserAchievement {
 // =====================================================================
 
 model Streak {
-  id                String    @id @default(cuid())
-  projectId         String
-  environmentId     String
-  key               String    @default("daily") // streak definition key
-  name              String
-  cadence           String    @default("daily") // daily | weekly | custom
-  eventType         String    @default("streak.checkin")
-  gracePeriodHours  Int       @default(0)
-  freezeCount       Int       @default(0)
-  milestonesJson    String    @default("[]") // [{ at: 7, rewardsJson: "[]" }]
-  rewardMultiplierJson String @default("{}") // { "7": 1.5 }
-  segmentId         String?
-  status            String    @default("active")
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  userStreaks UserStreak[]
+  id                   String       @id @default(cuid())
+  projectId            String
+  environmentId        String
+  key                  String       @default("daily") // streak definition key
+  name                 String
+  cadence              String       @default("daily") // daily | weekly | custom
+  eventType            String       @default("streak.checkin")
+  gracePeriodHours     Int          @default(0)
+  freezeCount          Int          @default(0)
+  milestonesJson       String       @default("[]") // [{ at: 7, rewardsJson: "[]" }]
+  rewardMultiplierJson String       @default("{}") // { "7": 1.5 }
+  segmentId            String?
+  status               String       @default("active")
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+  project              Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userStreaks          UserStreak[]
+
   @@unique([projectId, environmentId, key])
 }
 
 model UserStreak {
-  id                String    @id @default(cuid())
-  streakId          String
-  appUserId         String
-  currentCount      Int       @default(0)
-  bestCount         Int       @default(0)
-  lastQualifyingAt  DateTime?
-  currentFreezeCount Int      @default(0)
-  updatedAt         DateTime  @updatedAt
-  streak Streak  @relation(fields: [streakId], references: [id], onDelete: Cascade)
-  appUser AppUser @relation(fields: [appUserId], references: [id], onDelete: Cascade)
+  id                 String    @id @default(cuid())
+  streakId           String
+  appUserId          String
+  currentCount       Int       @default(0)
+  bestCount          Int       @default(0)
+  lastQualifyingAt   DateTime?
+  currentFreezeCount Int       @default(0)
+  updatedAt          DateTime  @updatedAt
+  streak             Streak    @relation(fields: [streakId], references: [id], onDelete: Cascade)
+  appUser            AppUser   @relation(fields: [appUserId], references: [id], onDelete: Cascade)
+
   @@unique([streakId, appUserId])
   @@index([streakId, currentCount])
 }
@@ -480,22 +505,23 @@ model UserStreak {
 // =====================================================================
 
 model Reward {
-  id            String   @id @default(cuid())
-  projectId     String
-  environmentId String
-  code          String
-  name          String
-  description   String?
-  type          String   @default("currency") // xp | points | currency | item | entitlement | badge | discount | custom
-  configJson    String   @default("{}") // { currencyCode, amount, itemCode, quantity, xpAmount, trackCode }
-  eligibilityJson String @default("{}")
-  stackRule     String   @default("allow") // allow | replace | reject
-  expiresAt     DateTime?
-  status        String   @default("active")
-  metadataJson  String   @default("{}")
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id              String    @id @default(cuid())
+  projectId       String
+  environmentId   String
+  code            String
+  name            String
+  description     String?
+  type            String    @default("currency") // xp | points | currency | item | entitlement | badge | discount | custom
+  configJson      String    @default("{}") // { currencyCode, amount, itemCode, quantity, xpAmount, trackCode }
+  eligibilityJson String    @default("{}")
+  stackRule       String    @default("allow") // allow | replace | reject
+  expiresAt       DateTime?
+  status          String    @default("active")
+  metadataJson    String    @default("{}")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  project         Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
   @@unique([projectId, environmentId, code])
   @@index([projectId, environmentId, status])
 }
@@ -505,21 +531,22 @@ model Reward {
 // =====================================================================
 
 model Currency {
-  id             String   @id @default(cuid())
+  id             String              @id @default(cuid())
   projectId      String
   environmentId  String
   code           String // e.g. coins, gems
   name           String
-  type           String   @default("soft") // soft | hard | premium
-  exchangeRate   Float    @default(1.0) // rate to soft currency
-  capConfigJson  String   @default("{}") // { maxBalance, dailyEarnCap }
-  initialBalance Int      @default(0)
-  status         String   @default("active")
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  ledger   LedgerTransaction[]
-  wallets  WalletBalance[]
+  type           String              @default("soft") // soft | hard | premium
+  exchangeRate   Float               @default(1.0) // rate to soft currency
+  capConfigJson  String              @default("{}") // { maxBalance, dailyEarnCap }
+  initialBalance Int                 @default(0)
+  status         String              @default("active")
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  project        Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  ledger         LedgerTransaction[]
+  wallets        WalletBalance[]
+
   @@unique([projectId, environmentId, code])
 }
 
@@ -542,8 +569,9 @@ model LedgerTransaction {
   actorId        String?
   metadataJson   String   @default("{}")
   createdAt      DateTime @default(now())
-  appUser  AppUser   @relation(fields: [appUserId], references: [id], onDelete: Cascade)
-  currency Currency @relation(fields: [currencyId], references: [id])
+  appUser        AppUser  @relation(fields: [appUserId], references: [id], onDelete: Cascade)
+  currency       Currency @relation(fields: [currencyId], references: [id])
+
   @@unique([projectId, environmentId, idempotencyKey])
   @@index([appUserId, currencyId, createdAt])
   @@index([projectId, environmentId, createdAt])
@@ -556,8 +584,9 @@ model WalletBalance {
   balance       Float    @default(0)
   lockedBalance Float    @default(0)
   updatedAt     DateTime @updatedAt
-  appUser  AppUser   @relation(fields: [appUserId], references: [id], onDelete: Cascade)
-  currency Currency @relation(fields: [currencyId], references: [id], onDelete: Cascade)
+  appUser       AppUser  @relation(fields: [appUserId], references: [id], onDelete: Cascade)
+  currency      Currency @relation(fields: [currencyId], references: [id], onDelete: Cascade)
+
   @@unique([appUserId, currencyId])
   @@index([currencyId, balance])
 }
@@ -567,37 +596,39 @@ model WalletBalance {
 // =====================================================================
 
 model Item {
-  id            String   @id @default(cuid())
+  id            String     @id @default(cuid())
   projectId     String
   environmentId String
   code          String
   name          String
   description   String?
-  type          String   @default("durable") // consumable | durable | cosmetic | bundle | virtual_good
-  stackable     Boolean  @default(true)
-  maxStack      Int      @default(999)
+  type          String     @default("durable") // consumable | durable | cosmetic | bundle | virtual_good
+  stackable     Boolean    @default(true)
+  maxStack      Int        @default(999)
   icon          String?
-  metadataJson  String   @default("{}")
-  status        String   @default("active")
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  userItems UserItem[]
+  metadataJson  String     @default("{}")
+  status        String     @default("active")
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  project       Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userItems     UserItem[]
+
   @@unique([projectId, environmentId, code])
   @@index([projectId, environmentId, status])
 }
 
 model UserItem {
-  id          String    @id @default(cuid())
-  appUserId   String
-  itemId      String
-  quantity    Int       @default(1)
-  acquiredAt  DateTime  @default(now())
-  expiresAt   DateTime?
-  equipped    Boolean   @default(false)
-  metadataJson String   @default("{}")
-  appUser AppUser @relation(fields: [appUserId], references: [id], onDelete: Cascade)
-  item    Item    @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  id           String    @id @default(cuid())
+  appUserId    String
+  itemId       String
+  quantity     Int       @default(1)
+  acquiredAt   DateTime  @default(now())
+  expiresAt    DateTime?
+  equipped     Boolean   @default(false)
+  metadataJson String    @default("{}")
+  appUser      AppUser   @relation(fields: [appUserId], references: [id], onDelete: Cascade)
+  item         Item      @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
   @@unique([appUserId, itemId])
   @@index([appUserId])
 }
@@ -607,40 +638,42 @@ model UserItem {
 // =====================================================================
 
 model Leaderboard {
-  id             String   @id @default(cuid())
-  projectId      String
-  environmentId  String
-  code           String
-  name           String
-  metricSource   String   @default("event_sum") // event_count | event_sum | xp | currency | formula
-  eventType      String?
+  id              String             @id @default(cuid())
+  projectId       String
+  environmentId   String
+  code            String
+  name            String
+  metricSource    String             @default("event_sum") // event_count | event_sum | xp | currency | formula
+  eventType       String?
   payloadProperty String?
-  algorithm      String   @default("highest") // highest | lowest
-  timeWindow     String   @default("all_time") // all_time | daily | weekly | monthly | seasonal
-  tieBreaker     String   @default("earliest") // earliest | latest
-  resetSchedule  String?
-  maxEntries     Int      @default(1000)
-  rewardsJson    String   @default("[]") // rank-based rewards [{ rankFrom, rankTo, rewardsJson }]
-  status         String   @default("active")
-  metadataJson   String   @default("{}")
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  entries LeaderboardEntry[]
+  algorithm       String             @default("highest") // highest | lowest
+  timeWindow      String             @default("all_time") // all_time | daily | weekly | monthly | seasonal
+  tieBreaker      String             @default("earliest") // earliest | latest
+  resetSchedule   String?
+  maxEntries      Int                @default(1000)
+  rewardsJson     String             @default("[]") // rank-based rewards [{ rankFrom, rankTo, rewardsJson }]
+  status          String             @default("active")
+  metadataJson    String             @default("{}")
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  project         Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  entries         LeaderboardEntry[]
+
   @@unique([projectId, environmentId, code])
   @@index([projectId, environmentId, status])
 }
 
 model LeaderboardEntry {
-  id            String   @id @default(cuid())
+  id            String      @id @default(cuid())
   leaderboardId String
   appUserId     String
-  score         Float    @default(0)
+  score         Float       @default(0)
   rank          Int?
-  periodKey     String   @default("all")
-  updatedAt     DateTime @updatedAt
-  leaderboard Leaderboard @relation(fields: [leaderboardId], references: [id], onDelete: Cascade)
-  appUser     AppUser     @relation(fields: [appUserId], references: [id], onDelete: Cascade)
+  periodKey     String      @default("all")
+  updatedAt     DateTime    @updatedAt
+  leaderboard   Leaderboard @relation(fields: [leaderboardId], references: [id], onDelete: Cascade)
+  appUser       AppUser     @relation(fields: [appUserId], references: [id], onDelete: Cascade)
+
   @@unique([leaderboardId, appUserId, periodKey])
   @@index([leaderboardId, periodKey, score])
 }
@@ -650,19 +683,20 @@ model LeaderboardEntry {
 // =====================================================================
 
 model Season {
-  id           String    @id @default(cuid())
-  projectId    String
-  name         String
-  number       Int       @default(1)
-  startsAt     DateTime
-  endsAt       DateTime
-  gracePeriodHours Int  @default(24)
-  status       String    @default("scheduled") // scheduled | active | ended
-  tracksJson   String    @default("[]") // reward tracks [{ name, tiers: [{ at, rewardsJson }] }]
-  rankResetPolicy String @default("soft") // soft | hard | none
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id               String   @id @default(cuid())
+  projectId        String
+  name             String
+  number           Int      @default(1)
+  startsAt         DateTime
+  endsAt           DateTime
+  gracePeriodHours Int      @default(24)
+  status           String   @default("scheduled") // scheduled | active | ended
+  tracksJson       String   @default("[]") // reward tracks [{ name, tiers: [{ at, rewardsJson }] }]
+  rankResetPolicy  String   @default("soft") // soft | hard | none
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  project          Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
   @@unique([projectId, number])
 }
 
@@ -681,55 +715,59 @@ model Segment {
   status         String   @default("active")
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
   @@index([projectId, environmentId, status])
 }
 
 model Experiment {
-  id              String   @id @default(cuid())
-  projectId       String
-  environmentId   String
-  key             String
-  name            String
-  description     String?
-  variantsJson    String   @default("[]") // [{ key, name, weight }]
-  trafficPercent  Int      @default(100)
-  status          String   @default("draft") // draft | running | paused | completed
-  startedAt       DateTime?
-  endedAt         DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  assignments ExperimentAssignment[]
+  id             String                 @id @default(cuid())
+  projectId      String
+  environmentId  String
+  key            String
+  name           String
+  description    String?
+  variantsJson   String                 @default("[]") // [{ key, name, weight }]
+  trafficPercent Int                    @default(100)
+  status         String                 @default("draft") // draft | running | paused | completed
+  startedAt      DateTime?
+  endedAt        DateTime?
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+  project        Project                @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignments    ExperimentAssignment[]
+
   @@unique([projectId, environmentId, key])
   @@index([projectId, environmentId, status])
 }
 
 model ExperimentAssignment {
-  id            String   @id @default(cuid())
-  experimentId  String
-  appUserId     String
-  variant       String
-  assignedAt    DateTime @default(now())
-  experiment Experiment @relation(fields: [experimentId], references: [id], onDelete: Cascade)
-  appUser     AppUser     @relation(fields: [appUserId], references: [id], onDelete: Cascade)
+  id           String     @id @default(cuid())
+  experimentId String
+  appUserId    String
+  variant      String
+  assignedAt   DateTime   @default(now())
+  experiment   Experiment @relation(fields: [experimentId], references: [id], onDelete: Cascade)
+  appUser      AppUser    @relation(fields: [appUserId], references: [id], onDelete: Cascade)
+
   @@unique([experimentId, appUserId])
   @@index([appUserId])
 }
 
 model FeatureFlag {
-  id              String   @id @default(cuid())
-  projectId       String
-  environmentId   String
-  key             String
-  description     String?
-  enabled         Boolean  @default(false)
-  rolloutPercent  Int      @default(100)
-  segmentsJson    String   @default("[]")
-  status          String   @default("active")
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id             String   @id @default(cuid())
+  projectId      String
+  environmentId  String
+  key            String
+  description    String?
+  enabled        Boolean  @default(false)
+  rolloutPercent Int      @default(100)
+  segmentsJson   String   @default("[]")
+  status         String   @default("active")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
   @@unique([projectId, environmentId, key])
   @@index([projectId, environmentId, status])
 }
@@ -737,14 +775,15 @@ model FeatureFlag {
 model RemoteConfig {
   id            String   @id @default(cuid())
   projectId     String
-  environmentId  String
+  environmentId String
   key           String
   valueType     String   @default("string") // string | number | boolean | json
   valueJson     String   @default("")
   status        String   @default("active")
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project       Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
   @@unique([projectId, environmentId, key])
 }
 
@@ -764,7 +803,8 @@ model NotificationTemplate {
   status        String   @default("active")
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project       Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
   @@unique([projectId, key])
 }
 
@@ -783,7 +823,8 @@ model Notification {
   status        String    @default("sent") // queued | sent | failed | read
   metadataJson  String    @default("{}")
   correlationId String?
-  appUser AppUser @relation(fields: [appUserId], references: [id], onDelete: Cascade)
+  appUser       AppUser   @relation(fields: [appUserId], references: [id], onDelete: Cascade)
+
   @@index([appUserId, sentAt])
   @@index([projectId, environmentId, sentAt])
 }
@@ -801,6 +842,7 @@ model MetricDaily {
   dimension     String   @default("") // e.g. eventType or currency code
   value         Float    @default(0)
   updatedAt     DateTime @updatedAt
+
   @@unique([projectId, environmentId, dateKey, metricType, dimension])
   @@index([projectId, environmentId, metricType, dateKey])
 }
@@ -824,7 +866,8 @@ model DecisionTrace {
   actionsCount  Int      @default(0)
   durationMs    Int      @default(0)
   createdAt     DateTime @default(now())
-  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  event         Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
   @@index([projectId, environmentId, createdAt])
   @@index([appUserId])
   @@index([eventId])
@@ -844,6 +887,7 @@ model AuditLog {
   reason        String?
   requestId     String?
   createdAt     DateTime @default(now())
+
   @@index([projectId, createdAt])
   @@index([targetType, targetId])
 }
@@ -853,31 +897,222 @@ model AuditLog {
 // =====================================================================
 
 model WebhookEndpoint {
-  id            String   @id @default(cuid())
+  id            String            @id @default(cuid())
   projectId     String
   environmentId String
   url           String
   secret        String?
-  eventsJson    String   @default("[]")
-  status        String   @default("active")
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  eventsJson    String            @default("[]")
+  status        String            @default("active")
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
   deliveries    WebhookDelivery[]
+
   @@index([projectId, environmentId])
 }
 
 model WebhookDelivery {
-  id            String   @id @default(cuid())
+  id            String                   @id @default(cuid())
   endpointId    String
   eventId       String?
   eventType     String
-  payloadJson   String   @default("{}")
+  payloadJson   String                   @default("{}")
   statusCode    Int?
   response      String?
-  status        String   @default("pending") // pending | delivered | failed | retrying
-  attempts      Int      @default(0)
+  status        String                   @default("pending") // pending | delivered | failed | retrying
+  attempts      Int                      @default(0)
   lastAttemptAt DateTime?
-  createdAt     DateTime @default(now())
-  endpoint WebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+  createdAt     DateTime                 @default(now())
+  endpoint      WebhookEndpoint          @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+  schedule      WebhookDeliverySchedule?
+
   @@index([endpointId, createdAt])
+}
+
+// =====================================================================
+// 17. MONETIZATION (Sec. 37-45) — products, offers, paywalls,
+// subscriptions, entitlements, checkout (provider-abstracted).
+// Fourth vertical slice: Offer → Paywall → Checkout → Subscription →
+// Entitlement (§328). Payments are provider-abstracted (§41); the
+// bundled "simulated" provider completes the loop without external
+// calls; real providers (Stripe etc.) implement the same contract.
+// =====================================================================
+
+model Product {
+  id              String         @id @default(cuid())
+  projectId       String
+  environmentId   String
+  code            String // e.g. focus_pro
+  name            String
+  description     String?
+  // subscription | one_time | consumable | entitlement
+  type            String         @default("subscription")
+  // [{ tier: "monthly", amount: 9.99, currency: "usd", trialDays: 7, entitlementCode: "pro" }]
+  priceTiersJson  String         @default("[]")
+  // entitlement granted on purchase (shortcut when 1:1)
+  entitlementCode String?
+  status          String         @default("active")
+  metadataJson    String         @default("{}")
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  subscriptions   Subscription[]
+
+  @@unique([projectId, environmentId, code])
+  @@index([projectId, environmentId])
+}
+
+model Offer {
+  id            String    @id @default(cuid())
+  projectId     String
+  environmentId String
+  code          String // e.g. pro_launch_50
+  name          String
+  description   String?
+  productCode   String
+  // pricing override: { tier, amount, currency, originalAmount, trialDays, label }
+  pricingJson   String    @default("{}")
+  // condition tree — who sees this offer (§44 paywall targeting)
+  targetingJson String    @default("{}")
+  priority      Int       @default(100)
+  startsAt      DateTime?
+  endsAt        DateTime?
+  status        String    @default("active")
+  metadataJson  String    @default("{}")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([projectId, environmentId, code])
+  @@index([projectId, environmentId, priority])
+}
+
+model Paywall {
+  id              String   @id @default(cuid())
+  projectId       String
+  environmentId   String
+  code            String // e.g. advanced_analytics_wall
+  name            String
+  // entitlement required to pass this wall
+  entitlementCode String
+  // ordered offer codes presented at the wall
+  offersJson      String   @default("[]")
+  // condition tree — when the wall applies (§44)
+  targetingJson   String   @default("{}")
+  // UI hints for client rendering: { title, body, cta, dismissible }
+  configJson      String   @default("{}")
+  status          String   @default("active")
+  metadataJson    String   @default("{}")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([projectId, environmentId, code])
+  @@index([projectId, environmentId])
+}
+
+model Subscription {
+  id                 String    @id @default(cuid())
+  projectId          String
+  environmentId      String
+  appUserId          String
+  productCode        String
+  tier               String?
+  // trialing | active | past_due | canceled | expired
+  status             String    @default("active")
+  currentPeriodStart DateTime  @default(now())
+  currentPeriodEnd   DateTime
+  cancelAtPeriodEnd  Boolean   @default(false)
+  trialEndsAt        DateTime?
+  // snapshot of accepted pricing { amount, currency, offerCode? }
+  priceJson          String    @default("{}")
+  // simulated | stripe | apple | google … (§41 provider abstraction)
+  provider           String    @default("simulated")
+  providerRef        String?
+  metadataJson       String    @default("{}")
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  appUser            AppUser   @relation(fields: [appUserId], references: [id], onDelete: Cascade)
+  product            Product   @relation(fields: [projectId, environmentId, productCode], references: [projectId, environmentId, code], onDelete: Cascade)
+
+  @@unique([projectId, environmentId, appUserId, productCode])
+  @@index([appUserId])
+  @@index([projectId, environmentId, status])
+}
+
+model Entitlement {
+  id            String    @id @default(cuid())
+  projectId     String
+  environmentId String
+  appUserId     String
+  code          String // e.g. pro, vip_theme_pack
+  // subscription | purchase | reward | grant | system
+  source        String    @default("grant")
+  sourceRef     String?
+  // active | expired | revoked
+  status        String    @default("active")
+  startsAt      DateTime  @default(now())
+  endsAt        DateTime? // null = permanent
+  metadataJson  String    @default("{}")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  appUser       AppUser   @relation(fields: [appUserId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, environmentId, appUserId, code])
+  @@index([appUserId, code, status])
+}
+
+model CheckoutSession {
+  id            String    @id @default(cuid())
+  projectId     String
+  environmentId String
+  appUserId     String
+  offerCode     String?
+  productCode   String
+  tier          String?
+  // created | completed | canceled | failed
+  status        String    @default("created")
+  priceJson     String    @default("{}")
+  provider      String    @default("simulated")
+  providerRef   String?
+  completedAt   DateTime?
+  metadataJson  String    @default("{}")
+  createdAt     DateTime  @default(now())
+  appUser       AppUser   @relation(fields: [appUserId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, environmentId, appUserId])
+  @@index([status])
+}
+
+// =====================================================================
+// 18. PERSONALIZATION (Sec. 34) — targeted overrides of remote config
+// values. Evaluation chain: remote config (base) → personalization
+// rules (segment/attribute targeted, highest priority wins) → user
+// variable overrides. No hardcoded product logic (§2 configuration-first).
+// =====================================================================
+
+model PersonalizationRule {
+  id            String   @id @default(cuid())
+  projectId     String
+  environmentId String
+  key           String // remote-config key this overrides, e.g. daily_xp_cap
+  valueJson     String   @default("{}")
+  // condition tree — user/segment targeting
+  targetingJson String   @default("{}")
+  priority      Int      @default(100)
+  description   String?
+  status        String   @default("active")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([projectId, environmentId, key])
+}
+
+// Webhook delivery scheduling support (§99, §304): next retry time
+// + exponential backoff bookkeeping on the delivery row itself.
+model WebhookDeliverySchedule {
+  id            String          @id @default(cuid())
+  deliveryId    String          @unique
+  nextAttemptAt DateTime        @default(now())
+  createdAt     DateTime        @default(now())
+  delivery      WebhookDelivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+
+  @@index([nextAttemptAt])
 }
