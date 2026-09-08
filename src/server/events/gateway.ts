@@ -481,6 +481,9 @@ export async function processEvent(params: {
 
   await db.decisionTrace.create({
     data: {
+      // Use the traceId as the row id so the UUID returned to SDK callers
+      // resolves directly in the admin trace store (?id=<traceId>).
+      id: traceId,
       projectId: params.projectId,
       environmentId: params.environmentId,
       eventId: params.eventRowId,
