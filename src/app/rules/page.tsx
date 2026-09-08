@@ -30,7 +30,7 @@ export default function RulesPage() {
         { name: 'cooldownSeconds', label: 'Cooldown (seconds)', type: 'number', placeholder: 'none', hint: 'Minimum time between rule fires', width: 'half' },
         { name: 'frequencyCap', label: 'Frequency cap', type: 'number', placeholder: 'none', hint: 'Max fires per period', width: 'half' },
         { name: 'frequencyPeriod', label: 'Frequency period', type: 'select', options: [
-          { value: '', label: '—' },
+          { value: 'none', label: '—' },
           { value: 'hour', label: 'Per hour' },
           { value: 'day', label: 'Per day' },
           { value: 'week', label: 'Per week' },

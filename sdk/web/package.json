@@ -1,0 +1,14 @@
+{
+  "name": "@gamificationog/sdk",
+  "version": "1.0.0",
+  "description": "Official TypeScript/web SDK for GamificationOG — the universal, configuration-first, event-driven engagement platform.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "files": ["src", "README.md"],
+  "keywords": ["gamification", "engagement", "xp", "leaderboards", "challenges", "rewards", "streaks"],
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  }
+}

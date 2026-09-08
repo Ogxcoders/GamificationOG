@@ -156,7 +156,7 @@ export function ResourceCrud(props: ResourceCrudProps) {
       const payload: Record<string, unknown> = {}
       for (const f of props.fields) {
         const value = form[f.name]
-        if (value === '' || value === undefined) {
+        if (value === '' || value === undefined || value === 'none') {
           if (f.required) {
             toast.error(`"${f.label}" is required`)
             return

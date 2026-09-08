@@ -268,6 +268,14 @@ function toBool(v: Value): boolean {
 }
 
 function resolveVariable(name: string, vars: FormulaVariables): Value {
+  // 1. Flat lookup: variables may be keyed by full dot-path (flattened contexts)
+  if (Object.prototype.hasOwnProperty.call(vars, name)) {
+    const direct = (vars as Record<string, unknown>)[name]
+    if (direct === null || direct === undefined) return 0
+    if (typeof direct === 'number' || typeof direct === 'string' || typeof direct === 'boolean') return direct
+    return 0
+  }
+  // 2. Nested walk: variables may be nested objects
   const parts = name.split('.')
   let current: unknown = vars
   for (const part of parts) {

@@ -244,6 +244,7 @@ export async function ingestEvent(params: IngestParams): Promise<EventProcessing
 
   await bumpDailyMetrics(projectId, environmentId, occurredAt, [
     { metricType: 'events_ingested', dimension: request.event_type, value: 1 },
+    { metricType: 'events_ingested', dimension: '', value: 1 },
   ])
 
   return result
@@ -507,6 +508,7 @@ export async function processEvent(params: {
 
   await bumpDailyMetrics(params.projectId, params.environmentId, params.occurredAt, [
     { metricType: 'events_processed', dimension: params.eventType, value: 1 },
+    { metricType: 'events_processed', dimension: '', value: 1 },
     { metricType: 'actions_executed', dimension: '', value: actionResults.filter((a) => a.status === 'executed').length },
   ])
 

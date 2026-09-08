@@ -3,7 +3,7 @@
  * Anonymous/guest identity, identify + merge, sessions, API keys.
  * Anonymous account linking preserves progress on login (identity merge).
  */
-import { createHash, randomUUID, randomBytes } from 'crypto'
+import { createHash, scryptSync, randomUUID, randomBytes } from 'crypto'
 import { db } from '@/lib/db'
 import { parseJson } from '../core/types'
 import { PlatformError } from '../core/errors'
@@ -349,14 +349,14 @@ export async function authenticateApiKey(secret: string) {
 
 export function hashPassword(password: string, salt?: string): string {
   const s = salt ?? randomBytes(16).toString('hex')
-  const hash = createHash('scrypt').update(s + password).digest('hex')
+  const hash = scryptSync(password, s, 64).toString('hex')
   return `${s}:${hash}`
 }
 
 export function verifyPassword(password: string, stored: string): boolean {
   const [salt, hash] = stored.split(':')
   if (!salt || !hash) return false
-  const candidate = createHash('scrypt').update(salt + password).digest('hex')
+  const candidate = scryptSync(password, salt, 64).toString('hex')
   return candidate === hash
 }
 

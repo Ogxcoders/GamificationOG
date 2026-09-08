@@ -85,7 +85,7 @@ export default function OverviewPage() {
 
   const load = () => {
     setLoading(true)
-    apiGet<OverviewData>('/api/admin/analytics')
+    apiGet<OverviewData>('/api/admin/analytics/summary')
       .then(setData)
       .catch((e) => {
         const payload = (e as { payload?: unknown }).payload
