@@ -35,7 +35,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ reso
 
     // @ts-expect-error dynamic prisma delegate access
     const delegate = db[config.delegate] as { findMany: (args: Record<string, unknown>) => Promise<unknown[]> }
-    const where: Record<string, unknown> = { projectId: scope.projectId, environmentId: scope.environmentId }
+    const where: Record<string, unknown> = { projectId: scope.projectId }
+    if (!config.projectScoped) where.environmentId = scope.environmentId
     if (status) where.status = status
 
     const items = await delegate.findMany({ where, orderBy: listOrderBy(resource), take: limit })
@@ -73,9 +74,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ res
     // @ts-expect-error dynamic prisma delegate access
     const delegate = db[config.delegate] as { create: (args: Record<string, unknown>) => Promise<Record<string, unknown>> }
     try {
-      const created = await delegate.create({
-        data: { ...data, projectId: scope.projectId, environmentId: scope.environmentId },
-      })
+      const createData: Record<string, unknown> = { ...data, projectId: scope.projectId }
+      if (!config.projectScoped) createData.environmentId = scope.environmentId
+      const created = await delegate.create({ data: createData })
       await recordAudit({
         projectId: scope.projectId,
         environmentId: scope.environmentId,

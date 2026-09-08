@@ -21,56 +21,63 @@ export async function bumpDailyMetrics(
 ): Promise<void> {
   if (bumps.length === 0) return
   const key = dateKey(at)
-  const dateKeyParts = key.split('-').map(Number)
-  const dayStart = new Date(Date.UTC(dateKeyParts[0], dateKeyParts[1] - 1, dateKeyParts[2]))
-  const dayEnd = new Date(dayStart.getTime() + 86400000)
 
-  const ops = bumps.map((b) => {
-    const dimension = (b.dimension ?? '').slice(0, 80)
-    const where = {
-      projectId,
-      environmentId,
-      dateKey: key,
-      metricType: b.metricType,
-      dimension,
-    }
-    return db.metricDaily.upsert({
-      where: {
-        projectId_environmentId_dateKey_metricType_dimension: {
+  // Retry with backoff: SQLite serializes writers, so concurrent transactions can
+  // fail transiently ("database is locked"). Metrics must never be silently
+  // dropped (§91 reliability) — retry, then fall back to sequential upserts.
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const ops = bumps.map((b) => {
+        const dimension = (b.dimension ?? '').slice(0, 80)
+        const where = {
           projectId,
           environmentId,
           dateKey: key,
           metricType: b.metricType,
           dimension,
-        },
-      },
-      create: { ...where, value: b.value },
-      update: b.mode === 'set' ? { value: b.value } : { value: { increment: b.value } },
-    })
-  })
-
-  await db.$transaction(ops).catch(async () => {
-    // fallback: sequential
-    for (const b of bumps) {
-      const dimension = (b.dimension ?? '').slice(0, 80)
-      await db.metricDaily.upsert({
-        where: {
-          projectId_environmentId_dateKey_metricType_dimension: {
-            projectId,
-            environmentId,
-            dateKey: key,
-            metricType: b.metricType,
-            dimension,
+        }
+        return db.metricDaily.upsert({
+          where: {
+            projectId_environmentId_dateKey_metricType_dimension: {
+              projectId,
+              environmentId,
+              dateKey: key,
+              metricType: b.metricType,
+              dimension,
+            },
           },
-        },
-        create: { projectId, environmentId, dateKey: key, metricType: b.metricType, dimension, value: b.value },
-        update: b.mode === 'set' ? { value: b.value } : { value: { increment: b.value } },
-      }).catch(() => null)
+          create: { ...where, value: b.value },
+          update: b.mode === 'set' ? { value: b.value } : { value: { increment: b.value } },
+        })
+      })
+      await db.$transaction(ops)
+      return
+    } catch {
+      if (attempt < 3) {
+        await new Promise((r) => setTimeout(r, 25 * attempt))
+        continue
+      }
+      // final fallback: sequential upserts (each atomic on its own)
+      for (const b of bumps) {
+        const dimension = (b.dimension ?? '').slice(0, 80)
+        await db.metricDaily
+          .upsert({
+            where: {
+              projectId_environmentId_dateKey_metricType_dimension: {
+                projectId,
+                environmentId,
+                dateKey: key,
+                metricType: b.metricType,
+                dimension,
+              },
+            },
+            create: { projectId, environmentId, dateKey: key, metricType: b.metricType, dimension, value: b.value },
+            update: b.mode === 'set' ? { value: b.value } : { value: { increment: b.value } },
+          })
+          .catch(() => null)
+      }
     }
-  })
-
-  // Track active users for the day (idempotent via unique constraint upsert count)
-  void dayEnd
+  }
 }
 
 export async function trackActiveUser(projectId: string, environmentId: string, appUserId: string, at: Date) {
@@ -145,9 +152,41 @@ export async function rebuildAnalyticsFromEvents(projectId: string, environmentI
       { metricType: 'events_ingested', dimension: e.eventType, value: 1 },
       { metricType: 'events_ingested', value: 1 },
     ])
+    // processed metrics mirror the live pipeline (only genuinely processed events)
+    if (e.status === 'processed') {
+      await bumpDailyMetrics(projectId, environmentId, e.occurredAt, [
+        { metricType: 'events_processed', dimension: e.eventType, value: 1 },
+        { metricType: 'events_processed', value: 1 },
+      ])
+    }
     if (e.actorId) {
       dateUserSet.add(`${key}:${e.actorId}`)
     }
+  }
+
+  // actions executed — recomputed from rule executions (executedAt buckets)
+  const executions = await db.ruleExecution.findMany({
+    where: { rule: { projectId, environmentId }, executedAt: { gte: new Date(Date.now() - 30 * 86400000) } },
+    select: { executedAt: true, actionsExecuted: true, matched: true },
+  })
+  const actionsByDay = new Map<string, number>()
+  const matchesByDay = new Map<string, number>()
+  for (const x of executions) {
+    const key = dateKey(x.executedAt)
+    actionsByDay.set(key, (actionsByDay.get(key) ?? 0) + x.actionsExecuted)
+    if (x.matched) matchesByDay.set(key, (matchesByDay.get(key) ?? 0) + 1)
+  }
+  for (const [key, actions] of actionsByDay) {
+    const [y, m, d] = key.split('-').map(Number)
+    await bumpDailyMetrics(projectId, environmentId, new Date(Date.UTC(y, m - 1, d)), [
+      { metricType: 'actions_executed', value: actions },
+    ])
+  }
+  for (const [key, matches] of matchesByDay) {
+    const [y, m, d] = key.split('-').map(Number)
+    await bumpDailyMetrics(projectId, environmentId, new Date(Date.UTC(y, m - 1, d)), [
+      { metricType: 'rules_matched', value: matches },
+    ])
   }
 
   const byDay = new Map<string, Set<string>>()
@@ -163,5 +202,10 @@ export async function rebuildAnalyticsFromEvents(projectId: string, environmentI
     ])
   }
 
-  return { eventsProcessed: events.length, days: byDay.size }
+  return {
+    eventsProcessed: events.filter((e) => e.status === 'processed').length,
+    eventsIngested: events.length,
+    actionsExecuted: [...actionsByDay.values()].reduce((s, v) => s + v, 0),
+    days: byDay.size,
+  }
 }

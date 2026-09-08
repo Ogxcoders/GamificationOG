@@ -26,6 +26,10 @@ export interface ResourceConfig {
   auditType: string
   // unique field used by upsert-style create (optional)
   uniqueOn?: string[]
+  // true when the underlying model is project-scoped (no environmentId column).
+  // Content-level objects (notification templates, seasons) live at project level
+  // so they are identical across environments and promoted via config exports.
+  projectScoped?: boolean
 }
 
 const requireStatus = (d: Record<string, unknown>) => {
@@ -42,6 +46,7 @@ export const RESOURCES: Record<string, ResourceConfig> = {
   'event-schemas': {
     delegate: 'eventSchema',
     auditType: 'event_schema',
+    projectScoped: true, // event schemas are contracts — identical across environments
     fields: ['name', 'version', 'description', 'payloadSchemaJson', 'status'],
     requiredOnCreate: ['name'],
     uniqueOn: ['name', 'version'],
@@ -300,6 +305,7 @@ export const RESOURCES: Record<string, ResourceConfig> = {
   'notification-templates': {
     delegate: 'notificationTemplate',
     auditType: 'notification_template',
+    projectScoped: true,
     fields: ['key', 'name', 'channel', 'titleTemplate', 'bodyTemplate', 'variablesJson', 'status'],
     requiredOnCreate: ['key', 'name', 'titleTemplate'],
     uniqueOn: ['key'],
@@ -320,6 +326,7 @@ export const RESOURCES: Record<string, ResourceConfig> = {
   seasons: {
     delegate: 'season',
     auditType: 'season',
+    projectScoped: true,
     fields: ['name', 'number', 'startsAt', 'endsAt', 'gracePeriodHours', 'status', 'tracksJson', 'rankResetPolicy'],
     requiredOnCreate: ['name', 'startsAt', 'endsAt'],
     validate: (d) => {
