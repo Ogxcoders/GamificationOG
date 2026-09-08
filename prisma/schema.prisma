@@ -121,6 +121,7 @@ model AppUser {
   notifications  Notification[]
   experimentAssignments ExperimentAssignment[]
   variables      UserVariable[]
+  decisionTraces DecisionTrace[]
   sessions       AppSession[]
   @@unique([projectId, environmentId, externalId])
   @@index([projectId, environmentId])
@@ -817,6 +818,7 @@ model DecisionTrace {
   appUserId     String?
   eventType     String
   source        String   @default("api")
+  appUser       AppUser? @relation(fields: [appUserId], references: [id])
   stepsJson     String   @default("[]") // [{ step, name, input, output, matched, durationMs, detail }]
   summary       String?
   actionsCount  Int      @default(0)
