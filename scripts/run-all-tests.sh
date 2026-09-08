@@ -1,0 +1,52 @@
+#!/bin/bash
+# GamificationOG — Full test runner: starts dev server, waits for ready,
+# runs every E2E suite, stops the server, and reports a combined verdict.
+# Usage: bash scripts/run-all-tests.sh [base-url]
+set -uo pipefail
+cd "$(dirname "$0")/.."
+
+BASE="${1:-http://localhost:3000}"
+LOG=.zscripts/test-run.log
+SUITES=(e2e-verify e2e-features e2e-sdk e2e-db e2e-monetization)
+declare -A RESULTS
+
+# already running? else start one
+if ! curl -s -o /dev/null --max-time 3 "$BASE/"; then
+  echo "==> Starting dev server..."
+  (bun run dev > dev.log 2>&1 &)
+  for i in $(seq 1 60); do
+    if curl -s -o /dev/null --max-time 2 "$BASE/"; then break; fi
+    sleep 2
+  done
+fi
+curl -s -o /dev/null --max-time 5 "$BASE/" || { echo "FATAL: server did not start"; exit 1; }
+echo "==> Server ready at $BASE"
+
+for suite in "${SUITES[@]}"; do
+  echo ""
+  echo "════════════════ SUITE: $suite ════════════════"
+  if timeout 400 bun "scripts/$suite.ts" "$BASE" > "$LOG" 2>&1; then
+    RESULTS[$suite]="PASS"
+    tail -3 "$LOG"
+  else
+    RESULTS[$suite]="FAIL"
+    rg "❌|RESULT|Failed:|error" "$LOG" | head -20
+  fi
+done
+
+echo ""
+echo "════════════════════════════════════════════════"
+echo "  COMBINED RESULTS"
+total_pass=0
+for suite in "${SUITES[@]}"; do
+  status="${RESULTS[$suite]}"
+  marker=$([ "$status" = "PASS" ] && echo "✅" || echo "❌")
+  echo "  $marker $suite: $status"
+  [ "$status" = "FAIL" ] && overall=1 || true
+done
+if [ "${overall:-0}" = "1" ]; then
+  echo "  VERDICT: FAILURES PRESENT — inspect $LOG"
+  exit 1
+fi
+echo "  🎉 ALL SUITES PASSED"
+exit 0

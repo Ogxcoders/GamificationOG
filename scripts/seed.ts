@@ -422,6 +422,122 @@ async function main() {
   }
   console.log(`✓ Demo users: ${demoUsers.map((u) => u.externalId).join(', ')}`)
 
+  // ---- Monetization vertical (§37-45): products, offers, paywall ----
+  await db.product.create({
+    data: {
+      projectId: project.id, environmentId: env.id,
+      code: 'focus_pro', name: 'FocusQuest Pro', description: 'Premium subscription: advanced analytics, unlimited challenges, exclusive themes',
+      type: 'subscription', entitlementCode: 'pro',
+      priceTiersJson: JSON.stringify([
+        { tier: 'monthly', amount: 9.99, currency: 'usd', trialDays: 7 },
+        { tier: 'yearly', amount: 89.99, currency: 'usd', trialDays: 7 },
+      ]),
+      status: 'active',
+    },
+  })
+  await db.product.create({
+    data: {
+      projectId: project.id, environmentId: env.id,
+      code: 'vip_theme_pack', name: 'VIP Theme Pack', description: 'Permanent cosmetic themes (one-time purchase)',
+      type: 'entitlement', entitlementCode: 'vip_themes',
+      priceTiersJson: JSON.stringify([{ tier: 'standard', amount: 4.99, currency: 'usd' }]),
+      status: 'active',
+    },
+  })
+  await db.product.create({
+    data: {
+      projectId: project.id, environmentId: env.id,
+      code: 'coin_bag_small', name: 'Bag of 500 Coins', description: 'Consumable currency purchase',
+      type: 'consumable',
+      priceTiersJson: JSON.stringify([{ tier: 'standard', amount: 1.99, currency: 'usd' }]),
+      metadataJson: JSON.stringify({ currency: 'coins', amount: 500 }),
+      status: 'active',
+    },
+  })
+  console.log('✓ Products: 3 (subscription + entitlement + consumable)')
+
+  await db.offer.create({
+    data: {
+      projectId: project.id, environmentId: env.id,
+      code: 'pro_launch_40', name: 'Pro Launch Offer — 40% off',
+      description: 'Introductory pricing for new users on the free plan',
+      productCode: 'focus_pro',
+      pricingJson: JSON.stringify({ tier: 'monthly', amount: 5.99, originalAmount: 9.99, label: '40% off first month' }),
+      targetingJson: JSON.stringify({ op: 'and', conditions: [{ field: 'user.attribute.plan', operator: 'eq', value: 'free' }] }),
+      priority: 200, status: 'active',
+    },
+  })
+  await db.offer.create({
+    data: {
+      projectId: project.id, environmentId: env.id,
+      code: 'pro_winback', name: 'Pro Win-back — 60% off 3 months',
+      description: 'For users whose Pro subscription lapsed',
+      productCode: 'focus_pro',
+      pricingJson: JSON.stringify({ tier: 'monthly', amount: 3.99, originalAmount: 9.99, trialDays: 14, label: '60% off + 14-day trial' }),
+      targetingJson: JSON.stringify({ op: 'and', conditions: [{ field: 'user.entitlement.pro', operator: 'eq', value: false }] }),
+      priority: 150, status: 'active',
+    },
+  })
+  console.log('✓ Offers: 2 (targeted by plan attribute + entitlement state)')
+
+  await db.paywall.create({
+    data: {
+      projectId: project.id, environmentId: env.id,
+      code: 'advanced_analytics', name: 'Advanced Analytics Wall',
+      entitlementCode: 'pro',
+      offersJson: JSON.stringify(['pro_launch_40', 'pro_winback']),
+      targetingJson: JSON.stringify({ op: 'and', conditions: [{ field: 'user.level', operator: 'gte', value: 3 }] }),
+      configJson: JSON.stringify({
+        title: 'Unlock Advanced Analytics',
+        body: 'See deep focus trends, streak heatmaps, and team comparisons.',
+        cta: 'Try Pro free for 7 days',
+        dismissible: true,
+      }),
+      status: 'active',
+    },
+  })
+  console.log('✓ Paywall: advanced_analytics (gated on "pro" entitlement, level ≥ 3)')
+
+  // VIP entitlement for Ada (pro plan demo)
+  await db.entitlement.create({
+    data: {
+      projectId: project.id, environmentId: env.id, appUserId: userIds['ada'],
+      code: 'pro', source: 'grant', sourceRef: 'seed-demo', status: 'active', startsAt: new Date(),
+      endsAt: new Date(Date.now() + 90 * 86400000),
+    },
+  })
+  console.log('✓ Entitlement: ada → pro (90 days, seed demo)')
+
+  // ---- Personalization (§34): targeted config overrides ----
+  await db.personalizationRule.create({
+    data: {
+      projectId: project.id, environmentId: env.id,
+      key: 'daily_xp_cap', valueJson: JSON.stringify({ value: 8000 }),
+      targetingJson: JSON.stringify({ op: 'and', conditions: [{ field: 'user.attribute.plan', operator: 'eq', value: 'pro' }] }),
+      priority: 200, description: 'Pro users get a higher XP cap', status: 'active',
+    },
+  })
+  await db.personalizationRule.create({
+    data: {
+      projectId: project.id, environmentId: env.id,
+      key: 'daily_xp_cap', valueJson: JSON.stringify({ value: 3000 }),
+      targetingJson: JSON.stringify({ op: 'and', conditions: [{ field: 'user.level', operator: 'gte', value: 5 }] }),
+      priority: 100, description: 'High-level free users get a mid cap', status: 'active',
+    },
+  })
+  console.log('✓ Personalization rules: 2 (pro plan → 8000 cap, level ≥ 5 → 3000 cap)')
+
+  // ---- Webhook receiver endpoint (example config, §99) ----
+  await db.webhookEndpoint.create({
+    data: {
+      projectId: project.id, environmentId: env.id,
+      url: 'https://example.com/focusquest/hooks', secret: 'whsec_demo_secret',
+      eventsJson: JSON.stringify(['task.completed', 'achievement.unlocked', 'checkout.completed']),
+      status: 'paused', // paused by default: example.com would fail delivery
+    },
+  })
+  console.log('✓ Webhook endpoint: example receiver (paused — set your URL in Settings)')
+
   console.log('\n🎉 Seed complete!\n')
   console.log('   Dashboard login: owner@focusquest.app / gamification123')
   console.log('   Scope: Acme Inc → Product Team → FocusQuest → development\n')

@@ -44,6 +44,14 @@ export const DOMAIN_OBJECT_TYPES: Capability[] = [
   { kind: 'object_type', name: 'decision_trace', domain: 'observability', description: 'Step-by-step engine decision record' },
   { kind: 'object_type', name: 'audit_log', domain: 'security', description: 'Immutable admin mutation record' },
   { kind: 'object_type', name: 'webhook_endpoint', domain: 'integrations', description: 'External delivery target' },
+  { kind: 'object_type', name: 'webhook_delivery', domain: 'integrations', description: 'Outbound webhook attempt with retries' },
+  { kind: 'object_type', name: 'product', domain: 'monetization', description: 'Sellable catalog entry (subscription/one-time/consumable/entitlement)' },
+  { kind: 'object_type', name: 'offer', domain: 'monetization', description: 'Targeted pricing/packaging of a product' },
+  { kind: 'object_type', name: 'paywall', domain: 'monetization', description: 'Entitlement-gated wall with presented offers' },
+  { kind: 'object_type', name: 'subscription', domain: 'monetization', description: 'User recurring purchase state' },
+  { kind: 'object_type', name: 'entitlement', domain: 'monetization', description: 'User access right reconciled from sources' },
+  { kind: 'object_type', name: 'checkout_session', domain: 'monetization', description: 'Provider-abstracted purchase session' },
+  { kind: 'object_type', name: 'personalization_rule', domain: 'personalization', description: 'Targeted override of remote config values' },
 ]
 
 export const EVENT_CATALOG: Capability[] = [
@@ -59,6 +67,11 @@ export const EVENT_CATALOG: Capability[] = [
   { kind: 'event', name: 'streak.updated', domain: 'streaks', description: 'Streak state changed' },
   { kind: 'event', name: 'leaderboard.updated', domain: 'competition', description: 'Leaderboard score changed' },
   { kind: 'event', name: 'notification.sent', domain: 'notifications', description: 'Notification delivered' },
+  { kind: 'event', name: 'checkout.completed', domain: 'monetization', description: 'Purchase session resolved successfully' },
+  { kind: 'event', name: 'subscription.started', domain: 'monetization', description: 'Subscription activated or renewed' },
+  { kind: 'event', name: 'entitlement.granted', domain: 'monetization', description: 'Access right granted/renewed' },
+  { kind: 'event', name: 'paywall.evaluated', domain: 'monetization', description: 'Paywall gating decision for a user' },
+  { kind: 'event', name: 'webhook.delivered', domain: 'integrations', description: 'Outbound webhook delivered' },
 ]
 
 export function getFullRegistry(): Capability[] {
