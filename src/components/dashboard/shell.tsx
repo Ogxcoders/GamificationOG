@@ -51,6 +51,7 @@ const NAV_GROUPS: Array<{ title: string; items: NavItem[] }> = [
     title: 'Engagement',
     items: [
       { href: '/rules', label: 'Rules', icon: GitBranch, hint: 'WHEN / IF / THEN' },
+      { href: '/packs', label: 'Packs', icon: Package, hint: 'Behavior bundles' },
       { href: '/challenges', label: 'Challenges', icon: Target },
       { href: '/achievements', label: 'Achievements', icon: Trophy },
       { href: '/streaks', label: 'Streaks', icon: Flame },

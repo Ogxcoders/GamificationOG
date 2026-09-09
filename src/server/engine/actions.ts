@@ -206,8 +206,19 @@ registerAction('unlock_achievement', 'achievements', 'Directly unlock an achieve
 
 // update_challenge_progress — challenge domain
 registerAction('update_challenge_progress', 'challenges', 'Advance challenge progress by a delta', async (params, ctx) => {
-  const challengeId = requireString(params, 'challenge')
+  const challengeRef = requireString(params, 'challenge')
   const delta = typeof params.delta === 'number' ? params.delta : 1
+  // resolve by id, then by code (packs and portable configs reference codes)
+  let challengeId = challengeRef
+  const byId = await db.challenge.findUnique({ where: { id: challengeRef }, select: { id: true } })
+  if (!byId) {
+    const byCode = await db.challenge.findFirst({
+      where: { projectId: ctx.projectId, environmentId: ctx.environmentId, code: challengeRef },
+      select: { id: true },
+    })
+    if (!byCode) return { detail: 'Challenge not found', skipped: true }
+    challengeId = byCode.id
+  }
   const result = await updateChallengeProgress({
     challengeId,
     appUserId: ctx.appUserId,
@@ -225,7 +236,18 @@ registerAction('update_challenge_progress', 'challenges', 'Advance challenge pro
 
 // update_streak — streak domain
 registerAction('update_streak', 'streaks', 'Mark a streak qualifying event', async (params, ctx) => {
-  const streakId = requireString(params, 'streak')
+  const streakRef = requireString(params, 'streak')
+  // resolve by id, then by key (packs and portable configs reference keys)
+  let streakId = streakRef
+  const byId = await db.streak.findUnique({ where: { id: streakRef }, select: { id: true } })
+  if (!byId) {
+    const byKey = await db.streak.findFirst({
+      where: { projectId: ctx.projectId, environmentId: ctx.environmentId, key: streakRef },
+      select: { id: true },
+    })
+    if (!byKey) return { detail: 'Streak not found', skipped: true }
+    streakId = byKey.id
+  }
   const result = await updateStreak({
     streakId,
     appUserId: ctx.appUserId,
@@ -242,9 +264,20 @@ registerAction('update_streak', 'streaks', 'Mark a streak qualifying event', asy
 
 // update_leaderboard — ranking domain
 registerAction('update_leaderboard', 'competition', 'Set or increment a leaderboard score', async (params, ctx) => {
-  const leaderboardId = requireString(params, 'leaderboard')
+  const leaderboardRef = requireString(params, 'leaderboard')
   const mode = params.mode === 'set' ? 'set' : 'increment'
   const score = resolveAmount(params, 'score', ctx)
+  // resolve by id, then by code (packs and portable configs reference codes)
+  let leaderboardId = leaderboardRef
+  const byId = await db.leaderboard.findUnique({ where: { id: leaderboardRef }, select: { id: true } })
+  if (!byId) {
+    const byCode = await db.leaderboard.findFirst({
+      where: { projectId: ctx.projectId, environmentId: ctx.environmentId, code: leaderboardRef },
+      select: { id: true },
+    })
+    if (!byCode) return { detail: 'Leaderboard not found', skipped: true }
+    leaderboardId = byCode.id
+  }
   const result = await updateLeaderboard({
     leaderboardId,
     appUserId: ctx.appUserId,

@@ -538,6 +538,31 @@ async function main() {
   })
   console.log('✓ Webhook endpoint: example receiver (paused — set your URL in Settings)')
 
+  // ---- Pack catalog (§57) — built-in packs, idempotent upserts ----
+  const { BUILT_IN_PACKS } = await import('../src/server/packs/catalog')
+  for (const pack of BUILT_IN_PACKS) {
+    await db.pack.upsert({
+      where: { slug: pack.slug },
+      create: {
+        slug: pack.slug,
+        name: pack.name,
+        description: pack.description,
+        category: pack.category,
+        version: pack.version,
+        status: 'published',
+        definitionJson: JSON.stringify(pack.definition),
+      },
+      update: {
+        name: pack.name,
+        description: pack.description,
+        category: pack.category,
+        version: pack.version,
+        definitionJson: JSON.stringify(pack.definition),
+      },
+    })
+  }
+  console.log(`✓ Pack catalog: ${BUILT_IN_PACKS.length} built-in packs upserted`)
+
   console.log('\n🎉 Seed complete!\n')
   console.log('   Dashboard login: owner@focusquest.app / gamification123')
   console.log('   Scope: Acme Inc → Product Team → FocusQuest → development\n')

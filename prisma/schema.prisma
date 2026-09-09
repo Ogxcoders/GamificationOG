@@ -1116,3 +1116,39 @@ model WebhookDeliverySchedule {
 
   @@index([nextAttemptAt])
 }
+
+// =====================================================================
+// 34. PACK SYSTEM (§57) — reusable behavior bundles
+// =====================================================================
+
+model Pack {
+  id             String   @id @default(cuid())
+  slug           String   @unique
+  name           String
+  description    String?
+  category       String // streaks | productivity | learning | community | referral | competition | loyalty | rpg
+  version        String   @default("1.0.0")
+  status         String   @default("published")
+  // bundle definition: { rules: [...], achievements: [...], streaks: [...], leaderboards: [...] }
+  definitionJson String   @default("{}")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  installs       PackInstall[]
+}
+
+model PackInstall {
+  id             String    @id @default(cuid())
+  packId         String
+  projectId      String
+  environmentId  String
+  status         String    @default("installed") // installed | uninstalled
+  installedById  String? // admin user id
+  installedAt    DateTime  @default(now())
+  uninstalledAt  DateTime?
+  // snapshot of materialized object ids per resource for precise uninstall
+  installedJson  String    @default("{}")
+  pack           Pack      @relation(fields: [packId], references: [id], onDelete: Cascade)
+
+  @@unique([packId, projectId, environmentId])
+  @@index([projectId, environmentId])
+}

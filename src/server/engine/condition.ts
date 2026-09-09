@@ -168,6 +168,11 @@ export function evaluateCondition(node: ConditionNode, context: Record<string, u
   if (isLogicalCondition(node)) {
     return evaluateLogical(node, context)
   }
+  // Harden against malformed leaves (e.g. the "{}" column default stored when
+  // a rule is created without conditionsJson): an empty condition matches
+  // everything, consistent with null/undefined nodes — never crash the pipeline.
+  const field = (node as FieldCondition).field
+  if (typeof field !== 'string' || field.length === 0) return true
   return evaluateFieldCondition(node as FieldCondition, context)
 }
 
