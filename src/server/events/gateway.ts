@@ -354,20 +354,23 @@ function parseDate(raw: string | undefined): Date | null {
 // The core pipeline
 // ---------------------------------------------------------------------------
 
-export async function processEvent(params: {
-  eventRowId: string
-  eventId: string
-  eventType: string
-  eventVersion: number
-  projectId: string
-  environmentId: string
-  appUserId: string
-  subjectId: string | null
-  source: string
-  occurredAt: Date
-  correlationId: string
-  payload: Record<string, unknown>
-}): Promise<EventProcessingResult> {
+export async function processEvent(
+  params: {
+    eventRowId: string
+    eventId: string
+    eventType: string
+    eventVersion: number
+    projectId: string
+    environmentId: string
+    appUserId: string
+    subjectId: string | null
+    source: string
+    occurredAt: Date
+    correlationId: string
+    payload: Record<string, unknown>
+  },
+  opts: { replay?: boolean; replayRunId?: string } = {},
+): Promise<EventProcessingResult> {
   const steps: TraceStep[] = []
   let stepCount = 0
   const pipelineStart = Date.now()
@@ -570,72 +573,84 @@ export async function processEvent(params: {
   summarizeActions(actionResults, delta)
 
   // 8. Record trace + finalize
-  const traceId = randomUUID()
+  const traceId = opts.replay ? `replay:${opts.replayRunId ?? 'run'}` : randomUUID()
   const totalDuration = Date.now() - pipelineStart
 
-  await db.decisionTrace.create({
-    data: {
-      // Use the traceId as the row id so the UUID returned to SDK callers
-      // resolves directly in the admin trace store (?id=<traceId>).
-      id: traceId,
-      projectId: params.projectId,
-      environmentId: params.environmentId,
-      eventId: params.eventRowId,
-      correlationId: params.correlationId,
-      appUserId: params.appUserId,
-      eventType: params.eventType,
-      source: params.source,
-      stepsJson: JSON.stringify(steps),
-      summary: `Matched ${ruleOutcomes.filter((o) => o.matched).length} rules, executed ${actionResults.filter((a) => a.status === 'executed').length} actions`,
-      actionsCount: actionResults.filter((a) => a.status === 'executed').length,
-      durationMs: totalDuration,
-    },
-  })
+  if (!opts.replay) {
+    await db.decisionTrace.create({
+      data: {
+        // Use the traceId as the row id so the UUID returned to SDK callers
+        // resolves directly in the admin trace store (?id=<traceId>).
+        id: traceId,
+        projectId: params.projectId,
+        environmentId: params.environmentId,
+        eventId: params.eventRowId,
+        correlationId: params.correlationId,
+        appUserId: params.appUserId,
+        eventType: params.eventType,
+        source: params.source,
+        stepsJson: JSON.stringify(steps),
+        summary: `Matched ${ruleOutcomes.filter((o) => o.matched).length} rules, executed ${actionResults.filter((a) => a.status === 'executed').length} actions`,
+        actionsCount: actionResults.filter((a) => a.status === 'executed').length,
+        durationMs: totalDuration,
+      },
+    })
+  }
 
+  // Rule executions are recorded in BOTH live and replay mode: frequency
+  // caps + cooldowns must see them to reproduce original decisions.
+  // In replay mode executedAt is pinned to the event time so period windows
+  // (daily caps etc.) behave exactly as they did originally.
   await recordRuleExecutions(
     ruleOutcomes.map((o) => ({ ...o, actions: o.actions.map((a) => ({ action: a.action, status: a.status, detail: a.detail })) })),
     params.eventRowId,
-    traceId,
+    opts.replay ? undefined : traceId,
+    opts.replay ? params.occurredAt : undefined,
   )
 
-  await db.event.update({
-    where: { id: params.eventRowId },
-    data: { status: 'processed' },
-  })
+  if (!opts.replay) {
+    await db.event.update({
+      where: { id: params.eventRowId },
+      data: { status: 'processed' },
+    })
 
-  await bumpDailyMetrics(params.projectId, params.environmentId, params.occurredAt, [
-    { metricType: 'events_processed', dimension: params.eventType, value: 1 },
-    { metricType: 'events_processed', dimension: '', value: 1 },
-    { metricType: 'actions_executed', dimension: '', value: actionResults.filter((a) => a.status === 'executed').length },
-  ])
+    await bumpDailyMetrics(params.projectId, params.environmentId, params.occurredAt, [
+      { metricType: 'events_processed', dimension: params.eventType, value: 1 },
+      { metricType: 'events_processed', dimension: '', value: 1 },
+      { metricType: 'actions_executed', dimension: '', value: actionResults.filter((a) => a.status === 'executed').length },
+    ])
+  }
 
   // Outbound webhooks (§99/§347): fan out to subscribed endpoints.
-  // Failures never affect ingestion (delivery is an async outbox).
-  try {
-    const { dispatchWebhooks } = await import('../webhooks/service')
-    const actor = rawContext.user as { id?: string; external_id?: string } | undefined
-    await dispatchWebhooks({
-      projectId: params.projectId,
-      environmentId: params.environmentId,
-      eventType: params.eventType,
-      eventId: params.eventRowId,
-      payload: {
-        id: params.eventId,
-        type: params.eventType,
-        occurred_at: params.occurredAt.toISOString(),
-        project_id: params.projectId,
-        environment_id: params.environmentId,
-        user: actor?.id ? { id: actor.id, external_id: actor.external_id ?? '' } : null,
-        data: {
-          payload: params.payload,
-          actions_executed: actionResults.filter((a) => a.status === 'executed').length,
-          rules_matched: ruleOutcomes.filter((o) => o.matched).length,
-          trace_id: traceId,
+  // Suppressed in replay mode (§102 — no side-effect re-triggering) and
+  // failures never affect ingestion (delivery is an async outbox).
+  if (!opts.replay) {
+    try {
+      const { dispatchWebhooks } = await import('../webhooks/service')
+      const actor = rawContext.user as { id?: string; external_id?: string } | undefined
+      await dispatchWebhooks({
+        projectId: params.projectId,
+        environmentId: params.environmentId,
+        eventType: params.eventType,
+        eventId: params.eventRowId,
+        payload: {
+          id: params.eventId,
+          type: params.eventType,
+          occurred_at: params.occurredAt.toISOString(),
+          project_id: params.projectId,
+          environment_id: params.environmentId,
+          user: actor?.id ? { id: actor.id, external_id: actor.external_id ?? '' } : null,
+          data: {
+            payload: params.payload,
+            actions_executed: actionResults.filter((a) => a.status === 'executed').length,
+            rules_matched: ruleOutcomes.filter((o) => o.matched).length,
+            trace_id: traceId,
+          },
         },
-      },
-    })
-  } catch {
-    /* webhook fanout must never break ingestion */
+      })
+    } catch {
+      /* webhook fanout must never break ingestion */
+    }
   }
 
   return {

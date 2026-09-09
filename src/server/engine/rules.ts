@@ -201,6 +201,7 @@ export async function recordRuleExecutions(
   outcomes: RuleEvaluationOutcome[],
   eventId: string,
   decisionTraceId?: string,
+  executedAt?: Date,
 ): Promise<void> {
   if (outcomes.length === 0) return
   await db.ruleExecution.createMany({
@@ -213,6 +214,7 @@ export async function recordRuleExecutions(
       actionsExecuted: o.actions.length,
       error: o.error ?? null,
       durationMs: o.durationMs,
+      ...(executedAt ? { executedAt } : {}),
     })),
   })
 }

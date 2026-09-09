@@ -1333,3 +1333,27 @@ model RiskFlag {
   @@index([projectId, environmentId, decision])
   @@index([appUserId])
 }
+
+// =====================================================================
+// 42. DATA REPLAY & RECOVERY (§102) — projection rebuild from events
+// Stored Events → Validate → Replay → Rebuild → Verify (diff) → Promote
+// =====================================================================
+
+model ReplayRun {
+  id            String    @id @default(cuid())
+  projectId     String
+  environmentId String
+  scope         String // external user id, or "all"
+  dryRun        Boolean  @default(true)
+  status        String   @default("running") // running | completed | failed | rolled_back
+  userCount     Int      @default(0)
+  eventCount    Int      @default(0)
+  fromTime      DateTime?
+  toTime        DateTime?
+  diffJson      String   @default("{}") // per-user before/after + drift verdict
+  error         String?
+  startedAt     DateTime  @default(now())
+  finishedAt    DateTime?
+
+  @@index([projectId, environmentId, startedAt])
+}
