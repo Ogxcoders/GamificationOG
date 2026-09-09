@@ -156,10 +156,23 @@ export const RESOURCES: Record<string, ResourceConfig> = {
     uniqueOn: ['code'],
     validate: (d) => {
       if (d.conditionsJson !== undefined) {
-        const tree = parseJson<ConditionNode | null>(String(d.conditionsJson), null)
-        if (tree === null) throw new PlatformError({ code: 'INVALID_JSON', category: 'validation', message: 'conditionsJson must be valid JSON.' })
-        const r = validateConditionTree(tree)
-        if (!r.valid) throw new PlatformError({ code: 'INVALID_CONDITION', category: 'validation', message: r.error ?? 'Invalid condition tree.' })
+        const parsed = parseJson<Record<string, unknown> | null>(String(d.conditionsJson), null)
+        if (parsed === null) throw new PlatformError({ code: 'INVALID_JSON', category: 'validation', message: 'conditionsJson must be valid JSON.' })
+        // achievements accept two condition shapes (engine §23):
+        // 1. progress style: { progressField, progressTarget } — auto-unlock on a numeric threshold
+        // 2. condition tree: { op, conditions } / { field, operator, value }
+        if (typeof parsed.progressField === 'string') {
+          if (parsed.progressField.length === 0) {
+            throw new PlatformError({ code: 'INVALID_CONDITION', category: 'validation', message: 'progressField must be a non-empty dot-path, e.g. "user.level".' })
+          }
+          if (parsed.progressTarget !== undefined && (typeof parsed.progressTarget !== 'number' || parsed.progressTarget <= 0)) {
+            throw new PlatformError({ code: 'INVALID_CONDITION', category: 'validation', message: 'progressTarget must be a positive number.' })
+          }
+        } else {
+          const tree = parsed as unknown as ConditionNode
+          const r = validateConditionTree(tree)
+          if (!r.valid) throw new PlatformError({ code: 'INVALID_CONDITION', category: 'validation', message: r.error ?? 'Invalid condition tree.' })
+        }
       }
       requireStatus(d)
     },

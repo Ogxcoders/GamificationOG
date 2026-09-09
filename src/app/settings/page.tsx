@@ -8,6 +8,7 @@ import { Loader2, Plus, RefreshCw, Copy, KeyRound, Ban, CheckCircle2 } from 'luc
 import { apiGet, apiPost, apiDelete, isApiError, formatRelative } from '@/lib/client-api'
 import { useAuthGuard } from '@/hooks/use-auth-guard'
 import { DashboardShell } from '@/components/dashboard/shell'
+import { ImportExportCard } from '@/components/settings/io-card'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -173,6 +174,9 @@ export default function SettingsPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Import / Export (§59-60) */}
+        <ImportExportCard />
 
         {/* Integration snippet */}
         <Card>
