@@ -341,6 +341,38 @@ export async function ingestEvent(params: IngestParams): Promise<EventProcessing
     { metricType: 'events_ingested', dimension: '', value: 1 },
   ])
 
+  // ---- realtime fan-out (§78) ----
+  // Fires only on LIVE ingestion (never on §102 replay — replay is a
+  // side-effect-isolated rebuild), and never blocks the response: hub
+  // failures are swallowed.
+  try {
+    const { publish } = await import('../realtime/hub')
+    publish(projectId, environmentId, 'events', 'event.processed', {
+      eventId: result.eventId,
+      eventType: request.event_type,
+      status: result.status,
+      traceId: result.traceId ?? null,
+      user: request.external_user_id ?? null,
+      xpAwarded: result.stateDelta.xpAwarded,
+      levelUps: result.stateDelta.levelUps.length,
+      currencyChanges: result.stateDelta.currencyChanges,
+      achievementsUnlocked: result.stateDelta.achievementsUnlocked.map((a) => a.code),
+      challengesCompleted: result.stateDelta.challengesCompleted.map((c) => c.name),
+      actionsExecuted: result.actions.filter((a) => a.status === 'executed').length,
+    })
+    for (const lb of result.stateDelta.leaderboardUpdates) {
+      publish(projectId, environmentId, `leaderboard:${lb.leaderboard}`, 'leaderboard.update', {
+        eventId: result.eventId,
+        leaderboard: lb.leaderboard,
+        score: lb.score,
+        rank: lb.rank,
+        user: request.external_user_id ?? null,
+      })
+    }
+  } catch {
+    /* realtime fanout must never break ingestion */
+  }
+
   return result
 }
 

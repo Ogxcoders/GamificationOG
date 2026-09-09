@@ -3,6 +3,7 @@
  * Liveness/readiness checks and Prometheus exposition metrics.
  */
 import { db } from '@/lib/db'
+import { connectionCount as realtimeConnections } from '../realtime/hub'
 
 export interface HealthStatus {
   status: 'ok' | 'degraded' | 'down'
@@ -117,6 +118,7 @@ export async function getPrometheusMetrics(): Promise<string> {
   push('gog_risk_flags_total', 'Risk engine flags raised (§74 anti-cheat)', 'counter', [{ value: riskFlags }])
   push('gog_risk_flags_open', 'Risk flags awaiting review', 'gauge', [{ value: riskOpen }])
   push('gog_events_held', 'Events held by the risk engine', 'gauge', [{ value: riskHeld }])
+  push('gog_realtime_connections', 'Active realtime SSE connections (§78)', 'gauge', [{ value: realtimeConnections() }])
 
   return `${lines.join('\n')}\n`
 }

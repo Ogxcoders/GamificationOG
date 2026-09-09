@@ -274,6 +274,46 @@ export class GamificationOG {
   }
 
   // -------------------------------------------------------------------------
+  // Realtime (§78)
+  // -------------------------------------------------------------------------
+
+  /**
+   * Open a realtime SSE subscription (§78). Topics default to
+   * `events,leaderboard` — live processed-event and leaderboard traffic.
+   *
+   * The EventSource auto-reconnects; the server replays missed messages
+   * via Last-Event-ID from a bounded ring buffer.
+   *
+   * Note: browser EventSource cannot set Authorization headers, so the API
+   * key is passed via the `key` query parameter. If you proxy through your
+   * own backend, prefer the header-based fetch streaming approach.
+   */
+  stream(
+    topics: string[] = ['events', 'leaderboard'],
+    handlers: {
+      onMessage?: (msg: { seq: number; topic: string; type: string; data: Record<string, unknown>; at: string }) => void
+      onError?: (err: unknown) => void
+    } = {},
+  ): { close: () => void } {
+    const url = `${this.baseUrl}/api/v1/stream?topics=${encodeURIComponent(topics.join(','))}&key=${encodeURIComponent(this.apiKey)}`
+    if (typeof EventSource === 'undefined') {
+      throw new Error('GamificationOG: EventSource is not available in this environment')
+    }
+    const es = new EventSource(url)
+    es.onmessage = (ev: MessageEvent) => {
+      try {
+        handlers.onMessage?.(JSON.parse(ev.data as string))
+      } catch {
+        /* malformed frame — ignore */
+      }
+    }
+    es.onerror = (err) => handlers.onError?.(err)
+    return {
+      close: () => es.close(),
+    }
+  }
+
+  // -------------------------------------------------------------------------
   // Offline queue
   // -------------------------------------------------------------------------
 
