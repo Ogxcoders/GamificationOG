@@ -55,7 +55,7 @@ async function main() {
   }
   const SID_COOKIE = (login.headers.get('set-cookie') ?? '').split(';')[0]
 
-  const MCP_SCOPES = ['rules:read', 'events:read', 'events:write', 'state:read', 'formulas:eval', 'registry:read']
+  const MCP_SCOPES = ['rules:read', 'rules:propose', 'events:read', 'events:write', 'state:read', 'formulas:eval', 'registry:read']
   const keyRes = await call('/api/admin/apikeys/list', {
     headers: { cookie: SID_COOKIE },
     body: { name: `E2E MCP key ${ts}`, scopes: MCP_SCOPES },
@@ -178,10 +178,119 @@ async function main() {
   // ---------- 6. auth required (no key at all) ----------
   console.log('\n▸ 6. No authentication → rejected')
   {
-    for (const p of ['/api/v1/rules', '/api/v1/events', '/api/v1/capabilities']) {
+    for (const p of ['/api/v1/rules', '/api/v1/events', '/api/v1/capabilities', '/api/v1/proposals']) {
       const res = await call(p)
       check(`no key rejected: ${p}`, res.status === 401 && res.json?.error?.code === 'API_KEY_REQUIRED')
     }
+  }
+
+  // ---------- 7. AI proposals (§66-67: write-tools behind human approval) ----------
+  console.log('\n▸ 7. AI proposals — propose → human approves → rule created (§66-67)')
+  {
+    // AI proposes a rule (validated at submission)
+    const propose = await call('/api/v1/proposals', {
+      headers: auth,
+      body: {
+        type: 'rule.create',
+        payload: {
+          name: `AI Proposal Rule ${ts}`,
+          description: 'Proposed by the e2e MCP agent',
+          eventType: 'ai.proposed.event',
+          conditionsJson: { op: 'and', conditions: [{ field: 'event.payload.difficulty', operator: 'eq', value: 'hard' }] },
+          actionsJson: [{ type: 'award_xp', params: { amount: 33 } }],
+          priority: 400,
+          status: 'draft',
+        },
+        rationale: 'E2E: verifying the proposal → approval → execution pipeline (§66 AI operating flow).',
+      },
+    })
+    check('AI submits proposal (201 pending)', propose.status === 201 && propose.json?.status === 'pending', `id=${propose.json?.id?.slice(0, 10)}`)
+    const proposalId = propose.json?.id
+
+    // invalid proposal rejected at submission
+    const invalid = await call('/api/v1/proposals', {
+      headers: auth,
+      body: { type: 'rule.create', payload: { name: 'Bad', eventType: 'NOT VALID', actionsJson: '[]' } },
+    })
+    check('invalid proposal rejected at submission (400)', invalid.status === 400, `code=${invalid.json?.error?.code}`)
+
+    // unsupported proposal type
+    const unsupported = await call('/api/v1/proposals', {
+      headers: auth,
+      body: { type: 'user.delete', payload: {} },
+    })
+    check('unsupported proposal type rejected', unsupported.status === 400 && unsupported.json?.error?.code === 'PROPOSAL_TYPE_UNSUPPORTED')
+
+    // rules:read is NOT enough to propose (least privilege)
+    const readKey = await call('/api/admin/apikeys/list', {
+      headers: { cookie: SID_COOKIE },
+      body: { name: `E2E read-only ${ts}`, scopes: ['rules:read'] },
+    })
+    const readKeySecret = readKey.json?.key?.key
+    const proposeDenied = await call('/api/v1/proposals', {
+      headers: { authorization: `Bearer ${readKeySecret}` },
+      body: { type: 'rule.create', payload: { name: 'x', eventType: 'x.y', actionsJson: '[]' } },
+    })
+    check('rules:read key cannot propose (scope enforcement)', proposeDenied.status === 401, `status=${proposeDenied.status}`)
+    check('rules:read key CAN list proposals (read access)', (await call('/api/v1/proposals', { headers: { authorization: `Bearer ${readKeySecret}` } })).status === 200)
+
+    // AI tracks its proposals
+    const track = await call('/api/v1/proposals?status=pending', { headers: auth })
+    check('AI lists pending proposals', track.status === 200 && (track.json?.proposals ?? []).some((p: any) => p.id === proposalId))
+    check('supported types advertised', Array.isArray(track.json?.supportedTypes) && track.json.supportedTypes.includes('rule.create'))
+
+    // nothing created yet — write-tools NEVER write directly
+    const rulesBefore = await call('/api/admin/rules?limit=500', { headers: { cookie: SID_COOKIE } })
+    const existsBefore = (rulesBefore.json?.items ?? []).some((r: any) => r.name === `AI Proposal Rule ${ts}`)
+    check('no rule exists before approval (AI cannot write directly)', !existsBefore)
+
+    // AI keys can NEVER decide — only human admin sessions
+    const aiDecide = await call(`/api/admin/proposals/${proposalId}/decide`, {
+      headers: auth,
+      body: { decision: 'approve' },
+    })
+    check('AI key cannot approve (admin-only route)', aiDecide.status === 401, `status=${aiDecide.status}`)
+
+    // human rejects a decoy first
+    const decoy = await call('/api/v1/proposals', {
+      headers: auth,
+      body: { type: 'rule.create', payload: { name: `AI Decoy ${ts}`, eventType: 'ai.decoy.event', actionsJson: '[{"type":"award_xp","params":{"amount":1}}]' }, rationale: 'decoy' },
+    })
+    const reject = await call(`/api/admin/proposals/${decoy.json?.id}/decide`, {
+      headers: { cookie: SID_COOKIE },
+      body: { decision: 'reject', note: 'not aligned' },
+    })
+    check('human rejects proposal (no side effects)', reject.status === 200 && reject.json?.result?.status === 'rejected')
+    const doubleReject = await call(`/api/admin/proposals/${decoy.json?.id}/decide`, {
+      headers: { cookie: SID_COOKIE },
+      body: { decision: 'approve' },
+    })
+    check('double-decide rejected (409)', doubleReject.status === 409, `status=${doubleReject.status}`)
+
+    // human approves the real proposal
+    const approve = await call(`/api/admin/proposals/${proposalId}/decide`, {
+      headers: { cookie: SID_COOKIE },
+      body: { decision: 'approve', note: 'e2e approved' },
+    })
+    check('human approves → executed', approve.status === 200 && approve.json?.result?.status === 'approved', `createdId=${approve.json?.result?.createdId?.slice(0, 10)}`)
+
+    // the rule now exists with AI provenance
+    const rulesAfter = await call('/api/admin/rules?limit=500', { headers: { cookie: SID_COOKIE } })
+    const createdRule = (rulesAfter.json?.items ?? []).find((r: any) => r.name === `AI Proposal Rule ${ts}`)
+    check('rule created after approval with provenance metadata', Boolean(createdRule) && String(createdRule.metadataJson ?? '').includes('"proposedByAi":true'))
+    check('created rule status preserved (draft)', createdRule?.status === 'draft')
+
+    // audit trail: human approved + ai created
+    const audit = await call('/api/admin/audit/list?limit=30', { headers: { cookie: SID_COOKIE } })
+    const entries = audit.json?.entries ?? []
+    check('audit: proposal.approved (human actor)', entries.some((e: any) => e.action === 'proposal.approved' && e.actorType === 'human'))
+    check('audit: rule.created (ai actor)', entries.some((e: any) => e.action === 'rule.created' && e.actorType === 'ai'))
+
+    // cleanup: delete the created rule (draft → hard delete) + revoke read key
+    if (createdRule) {
+      await call(`/api/admin/rules/${createdRule.id}`, { headers: { cookie: SID_COOKIE }, method: 'DELETE' })
+    }
+    await call(`/api/admin/apikeys/list?id=${readKey.json?.key?.id}`, { headers: { cookie: SID_COOKIE }, method: 'DELETE' })
   }
 
   // ---------- cleanup ----------

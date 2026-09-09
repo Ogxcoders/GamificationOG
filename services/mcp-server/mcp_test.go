@@ -31,8 +31,8 @@ func TestToolsList(t *testing.T) {
         if err := json.Unmarshal(res.Result, &parsed); err != nil {
                 t.Fatal(err)
         }
-        if len(parsed.Tools) < 7 {
-                t.Fatalf("expected 7 tools, got %d", len(parsed.Tools))
+        if len(parsed.Tools) < 9 {
+                t.Fatalf("expected 9 tools, got %d", len(parsed.Tools))
         }
         names := map[string]bool{}
         for _, tool := range parsed.Tools {
@@ -253,4 +253,82 @@ func TestFormulaRequiresExpr(t *testing.T) {
         if err == nil || !strings.Contains(err.Message, "required") {
                 t.Fatalf("expected required-arg error, got %+v", err)
         }
+}
+
+func TestToolsListIncludesProposalTools(t *testing.T) {
+	s := NewServer("http://x", "")
+	res := s.Handle(&Request{JSONRPC: "2.0", ID: json.RawMessage("9"), Method: "tools/list"})
+	var parsed struct {
+		Tools []Tool `json:"tools"`
+	}
+	if err := json.Unmarshal(res.Result, &parsed); err != nil {
+		t.Fatal(err)
+	}
+	names := map[string]bool{}
+	for _, tool := range parsed.Tools {
+		names[tool.Name] = true
+	}
+	for _, want := range []string{"propose_rule", "list_proposals"} {
+		if !names[want] {
+			t.Fatalf("missing tool %q", want)
+		}
+	}
+}
+
+func TestProposeRuleTool(t *testing.T) {
+	up := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "POST" || r.URL.Path != "/api/v1/proposals" {
+			http.Error(w, `{"error":{"message":"wrong endpoint"}}`, 400)
+			return
+		}
+		var body map[string]any
+		json.NewDecoder(r.Body).Decode(&body)
+		if body["type"] != "rule.create" {
+			http.Error(w, `{"error":{"message":"type not forwarded"}}`, 400)
+			return
+		}
+		payload, _ := body["payload"].(map[string]any)
+		if payload["eventType"] != "task.completed" {
+			http.Error(w, `{"error":{"message":"payload not forwarded"}}`, 400)
+			return
+		}
+		if body["rationale"] != "engagement lift" {
+			http.Error(w, `{"error":{"message":"rationale not forwarded"}}`, 400)
+			return
+		}
+		w.Write([]byte(`{"id":"prop_1","type":"rule.create","status":"pending","note":"stored as pending"}`))
+	}))
+	defer up.Close()
+	s := NewServer(up.URL, "gog_key")
+	out, err := callTool(t, s, "propose_rule", `{"rule":{"name":"T","eventType":"task.completed","actionsJson":"[]"},"rationale":"engagement lift"}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "pending") {
+		t.Fatalf("expected pending proposal, got %s", out)
+	}
+}
+
+func TestProposeRuleRequiresArgs(t *testing.T) {
+	s := NewServer("http://x", "")
+	if _, err := callTool(t, s, "propose_rule", `{}`); err == nil || !strings.Contains(err.Message, "required") {
+		t.Fatalf("expected required-arg error, got %+v", err)
+	}
+	if _, err := callTool(t, s, "propose_rule", `{"rule":{"name":"T"}}`); err == nil || !strings.Contains(err.Message, "rationale") {
+		t.Fatalf("expected rationale error, got %+v", err)
+	}
+}
+
+func TestListProposalsTool(t *testing.T) {
+	up := stubUpstream(t, "GET", "/api/v1/proposals?status=pending", "gog_key",
+		`{"proposals":[{"id":"prop_1","status":"pending"}],"counts":{"pending":1,"total":1}}`)
+	defer up.Close()
+	s := NewServer(up.URL, "gog_key")
+	out, err := callTool(t, s, "list_proposals", `{"status":"pending"}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "prop_1") {
+		t.Fatalf("expected proposal list, got %s", out)
+	}
 }

@@ -4,7 +4,8 @@
 //
 //   - initialize / tools/list / tools/call (MCP core protocol)
 //   - Tools: list_rules, get_user_state, simulate_event, list_events,
-//     evaluate_formula, leaderboard, list_capabilities
+//     evaluate_formula, leaderboard, list_capabilities,
+//     propose_rule, list_proposals (write-tools behind human approval)
 //
 // The server is a thin stateless adapter: every tool call translates to
 // an authenticated HTTP request against the platform's public v1 API
@@ -90,6 +91,8 @@ func NewServer(baseURL, apiKey string) *Server {
                 {Name: "evaluate_formula", Description: "Evaluate a formula expression through the platform's sandboxed deterministic engine (same engine as rule rewards). Variables use dotted paths, e.g. {\"event.payload.difficulty\": \"hard\"}. Scope: formulas:eval", InputSchema: map[string]any{"type": "object", "properties": map[string]any{"expr": map[string]any{"type": "string", "description": "expression, e.g. 20 + (user.level * 5)"}, "vars": map[string]any{"type": "object", "description": "variable values keyed by dotted path"}}, "required": []string{"expr"}}},
                 {Name: "leaderboard", Description: "Fetch a leaderboard with optional around-user context", InputSchema: map[string]any{"type": "object", "properties": map[string]any{"code": map[string]any{"type": "string"}, "user": map[string]any{"type": "string"}}, "required": []string{"code"}}},
                 {Name: "list_capabilities", Description: "Capability registry: object types, events, actions, operators, formula functions", InputSchema: map[string]any{"type": "object", "properties": map[string]any{}}},
+                {Name: "propose_rule", Description: "Propose a new gamification rule for human approval (MCP write-tools behind approval flows, section 66). The proposal is validated at submission and stored pending; a human admin must approve it before anything is written. Scope: rules:propose", InputSchema: map[string]any{"type": "object", "properties": map[string]any{"rule": map[string]any{"type": "object", "description": "rule fields: name, eventType, conditionsJson (optional condition tree), actionsJson (array of {type, params}), priority, status, description, cooldownSeconds, frequencyCap, frequencyPeriod"}, "rationale": map[string]any{"type": "string", "description": "why this rule should exist (shown to the human reviewer)"}}, "required": []string{"rule", "rationale"}}},
+                {Name: "list_proposals", Description: "List configuration change proposals submitted by AI agents with their approval status (pending/approved/rejected/failed). Scope: rules:propose or rules:read", InputSchema: map[string]any{"type": "object", "properties": map[string]any{"status": map[string]any{"type": "string", "description": "filter: pending | approved | rejected | failed"}}}},
         }
         return s
 }
@@ -222,6 +225,26 @@ func (s *Server) handleToolCall(params json.RawMessage) (any, error) {
                 return s.platformCall("GET", "/api/v1/leaderboards"+query, nil)
         case "list_capabilities":
                 return s.platformCall("GET", "/api/v1/capabilities", nil)
+        case "propose_rule":
+                rule, _ := args["rule"].(map[string]any)
+                if len(rule) == 0 {
+                        return nil, fmt.Errorf("argument 'rule' (object) is required")
+                }
+                rationale := str("rationale")
+                if rationale == "" {
+                        return nil, fmt.Errorf("argument 'rationale' is required")
+                }
+                return s.platformCall("POST", "/api/v1/proposals", map[string]any{
+                        "type":      "rule.create",
+                        "payload":   rule,
+                        "rationale": rationale,
+                })
+        case "list_proposals":
+                extra := map[string]string{}
+                if v := str("status"); v != "" {
+                        extra["status"] = v
+                }
+                return s.platformCall("GET", q("/api/v1/proposals", extra), nil)
         default:
                 return nil, fmt.Errorf("unknown tool %q", p.Name)
         }

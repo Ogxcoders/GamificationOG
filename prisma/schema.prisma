@@ -1152,3 +1152,28 @@ model PackInstall {
   @@unique([packId, projectId, environmentId])
   @@index([projectId, environmentId])
 }
+
+// =====================================================================
+// 35. AI PROPOSALS (§66-67) — write-tools behind human approval
+// =====================================================================
+
+model Proposal {
+  id               String    @id @default(cuid())
+  projectId        String
+  environmentId    String
+  type             String // rule.create | rule.update (extensible)
+  payloadJson      String // the proposed configuration object
+  rationale        String? // why the AI proposes this
+  status           String    @default("pending") // pending | approved | rejected | failed
+  proposedByKeyId  String? // api key that submitted it
+  proposedByName   String?
+  decidedBy        String? // admin user id
+  decidedAt        DateTime?
+  decisionNote     String?
+  resultJson       String? // execution result (created object id, errors)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([projectId, environmentId, status])
+  @@index([projectId, status, createdAt])
+}

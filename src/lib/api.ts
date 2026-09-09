@@ -55,6 +55,19 @@ export function requireScope(auth: AuthenticatedApiKey, scope: string): void {
   }
 }
 
+/** Require at least one of the given scopes (§67 permission levels). */
+export function requireAnyScope(auth: AuthenticatedApiKey, scopes: string[]): void {
+  if (auth.scopes.includes('*')) return
+  if (!scopes.some((s) => auth.scopes.includes(s))) {
+    throw new PlatformError({
+      code: 'SCOPE_MISSING',
+      category: 'auth',
+      message: `This API key lacks any of the required scopes (${scopes.join(' | ')}).`,
+      fix: `Add one of: ${scopes.map((s) => `"${s}"`).join(', ')} to the key's scopes in Settings.`,
+    })
+  }
+}
+
 export async function readJson<T>(req: NextRequest): Promise<T> {
   try {
     return (await req.json()) as T
