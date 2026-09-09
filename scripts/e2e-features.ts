@@ -503,6 +503,28 @@ console.log('\n▸ PART 4: specialized APIs (economy / replay / playground / sco
 }
 
 // ============================
+// PART 5 — visual rule builder metadata (§51)
+// ============================
+{
+  console.log('\n▸ PART 5: rules-meta endpoint — visual builder metadata surface')
+
+  const meta = await call('/api/admin/rules-meta', { cookie: SID })
+  check('rules-meta responds 200', meta.status === 200, `status ${meta.status}`)
+  const eventTypes: Array<{ name: string; source: string }> = meta.json?.eventTypes ?? []
+  const actions: Array<{ type: string; domain: string }> = meta.json?.actions ?? []
+  const operators: string[] = meta.json?.operators ?? []
+  check('event types include project schemas', eventTypes.some((e) => e.source === 'schema' && e.name.includes('.')))
+  check('event types include canonical catalog', eventTypes.some((e) => e.source === 'catalog'))
+  check('action registry exposes 14 actions', actions.length === 14, `got ${actions.length}`)
+  check('action registry includes award_xp + domains', actions.some((a) => a.type === 'award_xp' && a.domain === 'progression'))
+  check('all 17 comparison operators listed', operators.length === 17, `got ${operators.length}`)
+  check('operator list includes between + exists', operators.includes('between') && operators.includes('exists'))
+
+  const noAuth = await fetch(`${BASE}/api/admin/rules-meta`)
+  check('rules-meta requires admin session (401)', noAuth.status === 401, `status ${noAuth.status}`)
+}
+
+// ============================
 // summary
 // ============================
 console.log('\n════════════════════════════════════════════════════════════════')
