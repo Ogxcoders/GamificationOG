@@ -224,6 +224,18 @@ The Rust core engine (`crates/`, `cargo build` → `./target/debug/gog-engine`) 
 
 ## Deploying on your server
 
+### Docker (recommended)
+
+```bash
+git clone https://github.com/Ogxcoders/GamificationOG.git
+cd GamificationOG
+docker compose up -d          # builds, provisions SQLite, seeds, starts on :3000
+```
+
+The image is a multi-stage build (deps → build → slim runtime) that runs the Next.js standalone server under Bun. First boot auto-creates the schema and seeds the Customer Zero reference project (`GOG_AUTOSEED=false` to disable); SQLite data persists in the `gog-db` volume. A container `HEALTHCHECK` polls `/api/health`. See `Dockerfile`, `docker-compose.yml`, and `scripts/docker-entrypoint.sh`.
+
+### Bare metal / VM
+
 ```bash
 git clone https://github.com/Ogxcoders/GamificationOG.git
 cd GamificationOG && bun install
@@ -232,7 +244,12 @@ bun run db:push && bun run seed
 bun run build && bun run start   # or bun run dev
 ```
 
-Security notes: change the seeded owner password immediately, rotate the demo API key, and put the app behind TLS before production use.
+Security notes: change the seeded owner password immediately, rotate the demo API key, and put the app behind TLS before production use. Production hardening knobs (rate limits, login lockout, metrics token, SSO secret) are documented in `.env.example`.
+
+### CI
+
+GitHub Actions (`.github/workflows/ci.yml`) runs on every push/PR to `main`:
+web platform (install → prisma → seed → production build → full E2E suite), Rust core engine (build + unit tests + bit-identical TS parity), Go services (vet + tests), and a Docker image build with a live boot smoke test.
 
 ## License
 

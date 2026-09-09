@@ -1,0 +1,27 @@
+# GamificationOG — docker compose quickstart
+#   docker compose up -d
+#   → http://localhost:3000  (dashboard login: owner@focusquest.app / gamification123)
+#
+# SQLite data persists in the named volume `gog-db`. First boot provisions
+# the schema and seeds the Customer Zero reference project automatically.
+
+services:
+  app:
+    build: .
+    image: gamificationog:latest
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: file:/app/db/custom.db
+      GOG_AUTOSEED: "true"
+      # --- production hardening (set real values for live deployments) ---
+      # GOG_METRICS_TOKEN: <secret for /api/metrics>
+      # GOG_SSO_SECRET:    <secret for SSO session signing>
+      # GOG_RATE_LIMIT_MAX: "100"
+      # GOG_LOGIN_MAX_FAILURES: "10"
+    volumes:
+      - gog-db:/app/db
+    restart: unless-stopped
+
+volumes:
+  gog-db:

@@ -1,0 +1,24 @@
+# dependencies / build outputs
+node_modules
+.next
+target
+services
+
+# local data & scratch
+db
+.zscripts
+*.log
+dev.log
+server.log
+
+# git & docs
+.git
+.github
+docs
+worklog.md
+
+# misc
+README.md
+.env
+.env.*
+docker-compose.yml
