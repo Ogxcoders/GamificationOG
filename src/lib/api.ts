@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { PlatformError, toErrorPayload } from '@/server/core/errors'
 import { authenticateApiKey } from '@/server/identity/service'
 import type { AuthenticatedApiKey } from '@/server/core/types'
+import { clientIp, consumeRateLimit } from '@/server/security/rate-limit'
 
 export function json(data: unknown, status = 200): NextResponse {
   return NextResponse.json(data as Record<string, unknown>, { status })
@@ -13,7 +14,11 @@ export function json(data: unknown, status = 200): NextResponse {
 
 export function apiError(e: unknown): NextResponse {
   if (e instanceof PlatformError) {
-    return NextResponse.json(e.toJSON(), { status: e.status })
+    const res = NextResponse.json(e.toJSON(), { status: e.status })
+    if (e.headers) {
+      for (const [k, v] of Object.entries(e.headers)) res.headers.set(k, v)
+    }
+    return res
   }
   console.error('[api] internal error:', e)
   return NextResponse.json(toErrorPayload(e), { status: 500 })
@@ -32,12 +37,50 @@ export async function requireApiKey(req: NextRequest): Promise<AuthenticatedApiK
       fix: 'Create an API key in Settings, or use the playground which authenticates internally.',
     })
   }
+
+  // Pre-auth IP guard: throttles credential stuffing / key brute force
+  // before any database lookup (§ Advanced security).
+  const ip = clientIp(req)
+  const ipDecision = consumeRateLimit(`ip:${ip}`)
+  if (!ipDecision.allowed) {
+    throw new PlatformError({
+      code: 'RATE_LIMITED',
+      category: 'rate_limit',
+      message: 'Too many requests from this client. Retry after the indicated delay.',
+      status: 429,
+      detail: `Limit: ${ipDecision.limit} requests per window.`,
+      headers: {
+        'retry-after': String(ipDecision.retryAfterSeconds),
+        'x-ratelimit-limit': String(ipDecision.limit),
+        'x-ratelimit-remaining': '0',
+      },
+    })
+  }
+
   const auth2 = await authenticateApiKey(secret)
   if (!auth2) {
     throw new PlatformError({
       code: 'API_KEY_INVALID',
       category: 'auth',
       message: 'The provided API key is invalid or inactive.',
+    })
+  }
+
+  // Post-auth per-key quota (the primary v1 API limit).
+  const keyDecision = consumeRateLimit(`key:${auth2.apiKeyId}`)
+  if (!keyDecision.allowed) {
+    throw new PlatformError({
+      code: 'RATE_LIMITED',
+      category: 'rate_limit',
+      message: 'API key rate limit exceeded. Retry after the indicated delay.',
+      status: 429,
+      detail: `Limit: ${keyDecision.limit} requests per window for this key.`,
+      fix: 'Raise GOG_RATE_LIMIT_MAX, request a higher tier, or batch events.',
+      headers: {
+        'retry-after': String(keyDecision.retryAfterSeconds),
+        'x-ratelimit-limit': String(keyDecision.limit),
+        'x-ratelimit-remaining': '0',
+      },
     })
   }
   return auth2

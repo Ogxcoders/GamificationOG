@@ -15,6 +15,8 @@ export class PlatformError extends Error {
   detail?: string
   fix?: string
   traceId: string
+  /** Optional response headers (e.g. Retry-After on rate-limit errors). */
+  headers?: Record<string, string>
 
   constructor(params: {
     code: string
@@ -24,6 +26,7 @@ export class PlatformError extends Error {
     detail?: string
     fix?: string
     traceId?: string
+    headers?: Record<string, string>
   }) {
     super(params.message)
     this.name = 'PlatformError'
@@ -33,6 +36,7 @@ export class PlatformError extends Error {
     this.detail = params.detail
     this.fix = params.fix
     this.traceId = params.traceId ?? newTraceId()
+    this.headers = params.headers
   }
 
   toJSON() {
