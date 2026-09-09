@@ -1,15 +1,52 @@
 /**
- * GET /api/v1/events — Recent event feed for SDKs and AI agents
- * (MCP control plane, Sections 65, 153; event observability, Section 10).
+ * /api/v1/events — Event ingestion (POST, Section 10) + recent event feed
+ * for SDKs and AI agents (GET, MCP control plane Sections 65, 153).
  *
- * API-key authenticated, scope: "events:read". Read-only stream of
- * ingested events with status and type distribution — mirrors the admin
- * feed shape so agents can reason about ingestion health without
- * dashboard access.
+ * POST: SDK-facing event gateway — authenticate (API key, events:write),
+ * validate schema, idempotency, process synchronously through the full
+ * pipeline, return state deltas + trace id (Customer Zero flow).
+ *
+ * GET: read-only event feed (events:read) with status and type
+ * distribution — mirrors the admin feed shape so agents can reason
+ * about ingestion health without dashboard access.
  */
 import { NextRequest } from 'next/server'
-import { json, apiError, requireApiKey, requireScope } from '@/lib/api'
+import { json, apiError, requireApiKey, requireScope, readJson } from '@/lib/api'
 import { db } from '@/lib/db'
+import { ingestEvent } from '@/server/events/gateway'
+import type { EventIngestionRequest, EventProcessingResult } from '@/server/core/types'
+
+export async function POST(req: NextRequest) {
+  try {
+    const auth = await requireApiKey(req)
+    requireScope(auth, 'events:write')
+    const body = await readJson<EventIngestionRequest | { events: EventIngestionRequest[] }>(req)
+
+    // batch ingestion support (Section 10 — batch ingestion)
+    if ('events' in body && Array.isArray(body.events)) {
+      const results: EventProcessingResult[] = []
+      for (const e of body.events.slice(0, 100)) {
+        results.push(
+          await ingestEvent({
+            projectId: auth.projectId,
+            environmentId: auth.environmentId,
+            request: e,
+          }),
+        )
+      }
+      return json({ batch: true, results })
+    }
+
+    const result = await ingestEvent({
+      projectId: auth.projectId,
+      environmentId: auth.environmentId,
+      request: body as EventIngestionRequest,
+    })
+    return json(result)
+  } catch (e) {
+    return apiError(e)
+  }
+}
 
 export async function GET(req: NextRequest) {
   try {

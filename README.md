@@ -49,8 +49,9 @@ The universal feedback loop — **EVENT → CONTEXT → CONDITION → DECISION �
 | **Segments** | Dynamic condition-tree cohorts, reused by rules + flags |
 | **Experiments & Flags** | Sticky deterministic bucketing, traffic gates, variant weights, rollout percentages, remote config |
 | **Notifications** | In-app channel, `{{variable}}` template interpolation, anti-spam rate limits |
-| **Analytics** | Daily aggregate read models, rebuildable from raw events |
 | **Observability** | **Decision traces** — every pipeline step recorded with inputs/outputs/durations; immutable audit log with actor types (human/system/plugin/ai); structured actionable errors |
+| **AI / MCP control plane** | Permission-scoped AI tool endpoints (rules/events/formulas/capabilities), Go MCP server (JSON-RPC 2.0, stdio + HTTP) + API gateway with rate limiting and circuit breaking, Rust core-engine with **bit-identical parity** to the TS engine |
+| **Analytics** | Daily aggregate read models, rebuildable from raw events |
 | **Admin dashboard** | 16 areas: overview, events feed + schema registry, rules, challenges, achievements, streaks, rewards, economy + ledger, inventory, leaderboards, segments, experiments/flags/config, users explorer, analytics, traces viewer, audit log, playground simulator, settings/API keys, capability registry |
 | **Web SDK** | Zero-dependency TypeScript SDK with offline queue + batch flush + anonymous merge |
 | **Capability registry** | First-class discovery of all extension points (object types, events, actions, operators, formula functions) |
@@ -123,6 +124,10 @@ curl -X POST $BASE_URL/api/v1/events \
 |---|---|
 | `POST /api/v1/identify` | Identify/create user, anonymous merge |
 | `POST /api/v1/events` | Track event (single or `{events:[...]}` batch) — full pipeline runs synchronously |
+| `GET /api/v1/events` | Recent event feed + type counts (scope `events:read`) — MCP `list_events` backing |
+| `GET /api/v1/rules` | Rule configuration, WHEN/IF/THEN shape (scope `rules:read`) — MCP `list_rules` backing |
+| `POST /api/v1/formulas/evaluate` | Dry-run a formula through the sandboxed engine (scope `formulas:eval`) — MCP `evaluate_formula` backing |
+| `GET /api/v1/capabilities` | Capability registry discovery (scope `registry:read`) — MCP `list_capabilities` backing |
 | `GET /api/v1/users/{externalId}/state` | Complete state snapshot |
 | `GET /api/v1/leaderboards?code=` | Ranking view + around-me |
 | `GET /api/v1/flags?user=` | Flags, experiment variants, remote config, segments |
@@ -150,6 +155,9 @@ Admin API (`/api/admin/*`): session auth + generic validated CRUD for 17 resourc
 │   ├── components/dashboard/   # shell, generic resource CRUD
 │   └── lib/                    # api helpers, auth, client api
 ├── sdk/web/                    # TypeScript web SDK (offline queue)
+├── crates/                     # Rust core engine (gog-engine CLI): formulas, progression, ranking, rules, simulation — parity-tested against the TS engine
+├── services/gateway/           # Go API gateway: rate limiting, circuit breaker, correlation ids
+├── services/mcp-server/        # Go MCP server (JSON-RPC 2.0): AI agent tools over the v1 API
 └── scripts/seed.ts             # Customer Zero reference seed
 ```
 
@@ -168,8 +176,23 @@ Admin API (`/api/admin/*`): session auth + generic validated CRUD for 17 resourc
 - ✅ Phase 1 — vertical slice: events → rules → actions → state → traces → UI → SDK
 - ✅ Phase 2 — challenges, achievements, streaks, progression, economy, inventory, leaderboards, analytics, notifications
 - ✅ Phase 3 (core) — segments, experiments, feature flags, remote config
-- 🔜 Phase 4 — visual UI builder, packs, plugins, import/export, CLI, MCP/AI control plane
+- ✅ Phase 4 (partial) — MCP/AI control plane (scoped tool endpoints + Go MCP server + gateway), Rust core-engine parity, monetization (offers, paywalls, subscriptions, entitlements, webhooks, personalization)
+- 🔜 Phase 4 (rest) — visual UI builder, packs, plugins, import/export, CLI
 - 🔜 Phase 5 — SSO, SCIM, multi-region, enterprise hardening
+
+## AI / MCP integration
+
+AI agents operate the platform through **permission-scoped domain tools** (Master Plan §65/§153) — never raw database access:
+
+```jsonc
+// services/mcp-server — JSON-RPC 2.0 over stdio or HTTP
+{ "method": "tools/call", "params": { "name": "list_rules", "arguments": {} } }
+{ "method": "tools/call", "params": { "name": "evaluate_formula", "arguments": { "expr": "20 + (user.level * 5)" } } }
+```
+
+Tools: `list_rules`, `get_user_state`, `simulate_event`, `list_events`, `evaluate_formula`, `leaderboard`, `list_capabilities` — each maps to a scope-checked v1 API call, so agents inherit the platform's auth, audit and idempotency guarantees. Configuration changes stay in the human-owned dashboard; agents observe and simulate.
+
+The Rust core engine (`crates/`, `cargo build` → `./target/debug/gog-engine`) provides the same formula/progression/ranking semantics as the TypeScript engine — verified by the parity suite (`bun scripts/e2e-rust-parity.ts`, 33 checks incl. bit-identical simulation replay).
 
 ## Deploying on your server
 

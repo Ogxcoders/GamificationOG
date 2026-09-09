@@ -147,7 +147,7 @@ async function main() {
     check('GET /api/v1/capabilities → 200', res.status === 200)
     const registry: any[] = res.json?.registry ?? []
     const kinds = new Set(registry.map((c) => c.kind))
-    check('registry covers extension points', kinds.has('action') && kinds.has('operator') && kinds.has('formula_function'), [...kinds].join(', '))
+    check('registry covers extension points', kinds.has('action') && kinds.has('condition_operator') && kinds.has('formula_function'), [...kinds].join(', '))
     const summary = res.json?.summary ?? {}
     check('summary counts present', Object.keys(summary).length >= 3, `${Object.keys(summary).length} summary keys`)
   }
