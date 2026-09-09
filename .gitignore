@@ -61,3 +61,6 @@ server.log
 /.zscripts/
 /mini-services/README.md
 /agent-ctx/
+
+# rust build artifacts
+/target/

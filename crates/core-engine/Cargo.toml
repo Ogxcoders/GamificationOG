@@ -1,0 +1,20 @@
+[package]
+name = "gog-core-engine"
+description = "GamificationOG core engine facade + CLI (Rust brain — Section 87)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "gog-engine"
+path = "src/main.rs"
+
+[dependencies]
+gog-common = { path = "../common" }
+gog-formulas = { path = "../formulas" }
+gog-progression = { path = "../progression" }
+gog-ranking = { path = "../ranking" }
+gog-rules = { path = "../rules" }
+gog-simulation = { path = "../simulation" }
+serde = { workspace = true }
+serde_json = { workspace = true }

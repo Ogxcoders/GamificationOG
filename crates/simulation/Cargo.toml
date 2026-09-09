@@ -1,0 +1,15 @@
+[package]
+name = "gog-simulation"
+description = "GamificationOG deterministic simulation harness (Section 71, 231, 256)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+gog-common = { path = "../common" }
+gog-formulas = { path = "../formulas" }
+gog-progression = { path = "../progression" }
+gog-ranking = { path = "../ranking" }
+gog-rules = { path = "../rules" }
+serde = { workspace = true }
+serde_json = { workspace = true }
