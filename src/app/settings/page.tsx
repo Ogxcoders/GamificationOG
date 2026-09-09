@@ -9,6 +9,7 @@ import { apiGet, apiPost, apiDelete, isApiError, formatRelative } from '@/lib/cl
 import { useAuthGuard } from '@/hooks/use-auth-guard'
 import { DashboardShell } from '@/components/dashboard/shell'
 import { ImportExportCard } from '@/components/settings/io-card'
+import { SsoCard } from '@/components/settings/sso-card'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -177,6 +178,9 @@ export default function SettingsPage() {
 
         {/* Import / Export (§59-60) */}
         <ImportExportCard />
+
+        {/* SSO / OIDC (§ Phase 5) */}
+        <SsoCard />
 
         {/* Integration snippet */}
         <Card>

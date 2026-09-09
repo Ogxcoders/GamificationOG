@@ -5,13 +5,18 @@
  */
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Gamepad2, Loader2, ShieldCheck, Sparkles } from 'lucide-react'
+import { Gamepad2, Loader2, KeyRound, ShieldCheck, Sparkles } from 'lucide-react'
 import { apiGet, apiPost, isApiError } from '@/lib/client-api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { toast } from '@/sonner-bridge'
+
+interface SsoConnectionPublic {
+  id: string
+  name: string
+}
 
 export default function LoginPage() {
   const router = useRouter()
@@ -20,6 +25,7 @@ export default function LoginPage() {
   const [name, setName] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
+  const [ssoConnections, setSsoConnections] = useState<SsoConnectionPublic[]>([])
 
   useEffect(() => {
     apiGet<{ authenticated: boolean; bootstrapped: boolean }>('/api/admin/auth/me')
@@ -32,6 +38,14 @@ export default function LoginPage() {
       })
       .catch(() => setMode('login'))
   }, [router])
+
+  // SSO buttons for active enterprise connections (public endpoint)
+  useEffect(() => {
+    if (mode !== 'login') return
+    apiGet<{ connections: SsoConnectionPublic[] }>('/api/auth/sso/connections')
+      .then((data) => setSsoConnections(data.connections ?? []))
+      .catch(() => setSsoConnections([]))
+  }, [mode])
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -113,6 +127,30 @@ export default function LoginPage() {
               {mode === 'bootstrap' ? 'Create account' : 'Sign in'}
             </Button>
           </form>
+
+          {mode === 'login' && ssoConnections.length > 0 && (
+            <>
+              <div className="relative my-4">
+                <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
+                <div className="relative flex justify-center text-xs uppercase"><span className="bg-card px-2 text-muted-foreground">or</span></div>
+              </div>
+              <div className="space-y-2">
+                {ssoConnections.map((c) => (
+                  <a
+                    key={c.id}
+                    href={`/api/auth/sso/authorize?connection=${encodeURIComponent(c.id)}`}
+                    className="flex w-full items-center justify-center gap-2 rounded-md border px-4 py-2 text-sm font-medium transition-colors hover:bg-accent"
+                  >
+                    <KeyRound className="h-4 w-4" />
+                    Sign in with {c.name}
+                  </a>
+                ))}
+                <p className="text-[11px] text-muted-foreground text-center pt-1">
+                  Single sign-on via your organization&rsquo;s identity provider (OIDC).
+                </p>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 

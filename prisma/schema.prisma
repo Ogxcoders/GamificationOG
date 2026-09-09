@@ -1177,3 +1177,110 @@ model Proposal {
   @@index([projectId, environmentId, status])
   @@index([projectId, status, createdAt])
 }
+
+// =====================================================================
+// 36. SSO / OIDC (§9, Phase 5) — enterprise single sign-on
+// =====================================================================
+
+model SsoConnection {
+  id           String   @id @default(cuid())
+  name         String // display name shown on the login page
+  issuer       String // OIDC issuer base URL, e.g. https://accounts.example.com
+  clientId     String
+  clientSecret String // encrypted at rest (AES-256-GCM, key from env)
+  scopesJson   String   @default("[\"openid\",\"email\",\"profile\"]")
+  // email domains routed to this IdP (informational + login-page routing)
+  domainsJson  String   @default("[]")
+  jitEnabled   Boolean  @default(true) // provision unknown users on first login
+  jitRole      String   @default("viewer") // role granted to JIT-provisioned admins
+  status       String   @default("active") // active | disabled
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([status])
+}
+
+model SsoFlowState {
+  id           String   @id @default(cuid())
+  connectionId String
+  state        String   @unique
+  nonce        String
+  codeVerifier String // PKCE S256
+  redirectUri  String
+  returnTo     String?
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+
+  @@index([connectionId])
+}
+
+// =====================================================================
+// 37. SCIM 2.0 (Phase 5) — automated user directory provisioning
+// =====================================================================
+
+model ScimToken {
+  id         String    @id @default(cuid())
+  name       String
+  tokenHash  String    @unique
+  tokenPrefix String
+  status     String    @default("active")
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}
+
+// =====================================================================
+// 38. REGIONS / DATA RESIDENCY (§ Phase 5) — logical regions
+// =====================================================================
+
+model Region {
+  id               String   @id @default(cuid())
+  code             String   @unique // global | eu | us | apac ...
+  name             String
+  // residency policy: { enforcement: "none" | "strict" | "tag",
+  //                     description, allowedProjectOrigins: [...] }
+  policyJson       String   @default("{\"enforcement\":\"none\"}")
+  status           String   @default("active")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+// =====================================================================
+// 39. PLUGIN SYSTEM (§54/§110-112, Phase 5) — extension modules
+// =====================================================================
+
+model PluginInstall {
+  id             String   @id @default(cuid())
+  pluginId       String // manifest id, e.g. com.gog.skilltree
+  version        String
+  projectId      String
+  environmentId  String
+  status         String   @default("enabled") // installed | enabled | disabled | uninstalled
+  settingsJson   String   @default("{}")
+  installedById  String? // admin user id
+  installedAt    DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([pluginId, projectId, environmentId])
+  @@index([projectId, environmentId])
+}
+
+// =====================================================================
+// 40. SIMULATION RUNS (§ Phase 5) — large-scale simulation records
+// =====================================================================
+
+model SimRun {
+  id              String   @id @default(cuid())
+  projectId       String
+  environmentId   String
+  label           String?
+  users           Int
+  eventsPerUser   Int
+  status          String   @default("completed") // running | completed | failed
+  paramsJson      String   @default("{}")
+  summaryJson     String   @default("{}")
+  startedAt       DateTime @default(now())
+  finishedAt      DateTime?
+
+  @@index([projectId, environmentId, startedAt])
+}
