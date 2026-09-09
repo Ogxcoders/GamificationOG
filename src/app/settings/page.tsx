@@ -10,6 +10,7 @@ import { useAuthGuard } from '@/hooks/use-auth-guard'
 import { DashboardShell } from '@/components/dashboard/shell'
 import { ImportExportCard } from '@/components/settings/io-card'
 import { SsoCard } from '@/components/settings/sso-card'
+import { ScimCard } from '@/components/settings/scim-card'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -181,6 +182,9 @@ export default function SettingsPage() {
 
         {/* SSO / OIDC (§ Phase 5) */}
         <SsoCard />
+
+        {/* SCIM provisioning (§ Phase 5) */}
+        <ScimCard baseUrl={typeof window !== 'undefined' ? window.location.origin : ''} />
 
         {/* Integration snippet */}
         <Card>
