@@ -64,3 +64,4 @@ server.log
 
 # rust build artifacts
 /target/
+backups/
