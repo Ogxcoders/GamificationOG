@@ -14,7 +14,26 @@ import { NextRequest } from 'next/server'
 import { json, apiError, requireApiKey, requireScope, readJson } from '@/lib/api'
 import { db } from '@/lib/db'
 import { ingestEvent } from '@/server/events/gateway'
+import { enforceResidency, assertedRegion } from '@/server/regions/service'
+import { PlatformError } from '@/server/core/errors'
 import type { EventIngestionRequest, EventProcessingResult } from '@/server/core/types'
+
+/** Residency guard (§ Phase 5): rejects/tag cross-region traffic before any state write. */
+async function guardResidency(req: NextRequest, projectId: string, payload: Record<string, unknown>) {
+  const headerRegion = req.headers.get('x-gog-region')
+  const decision = await enforceResidency({ projectId, userRegion: assertedRegion(payload, headerRegion) })
+  if (!decision.ok) {
+    throw new PlatformError({
+      code: 'RESIDENCY_VIOLATION',
+      category: 'validation',
+      message: decision.reason ?? 'Data residency policy violation.',
+      status: 422,
+      detail: `project region=${decision.projectRegion}, asserted region=${decision.userRegion}`,
+      fix: 'Route this traffic to the region pinned for the project, or relax the region policy.',
+    })
+  }
+  return decision
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -26,6 +45,7 @@ export async function POST(req: NextRequest) {
     if ('events' in body && Array.isArray(body.events)) {
       const results: EventProcessingResult[] = []
       for (const e of body.events.slice(0, 100)) {
+        await guardResidency(req, auth.projectId, (e as { payload?: Record<string, unknown> }).payload ?? {})
         results.push(
           await ingestEvent({
             projectId: auth.projectId,
@@ -37,12 +57,14 @@ export async function POST(req: NextRequest) {
       return json({ batch: true, results })
     }
 
+    const residency = await guardResidency(req, auth.projectId, (body as { payload?: Record<string, unknown> }).payload ?? {})
+
     const result = await ingestEvent({
       projectId: auth.projectId,
       environmentId: auth.environmentId,
       request: body as EventIngestionRequest,
     })
-    return json(result)
+    return json(residency.tag ? { ...result, residency: { tagged: true, tag: residency.tag } } : result)
   } catch (e) {
     return apiError(e)
   }

@@ -54,6 +54,7 @@ model Project {
   description           String?
   status                String                 @default("active")
   timezone              String                 @default("UTC")
+  dataRegion            String                 @default("global") // region code (§ Phase 5 data residency)
   metadataJson          String                 @default("{}")
   createdAt             DateTime               @default(now())
   updatedAt             DateTime               @updatedAt

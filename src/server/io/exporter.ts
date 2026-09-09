@@ -109,9 +109,15 @@ export async function exportGamificationSystem(scope: ExportScope): Promise<Expo
       project: scope.projectName,
       environment: scope.environmentName,
       counts,
+      dataRegion: await getDataRegion(scope.projectId),
     },
     resources,
   }
+}
+
+async function getDataRegion(projectId: string): Promise<string> {
+  const project = await db.project.findUnique({ where: { id: projectId }, select: { dataRegion: true } })
+  return project?.dataRegion ?? 'global'
 }
 
 function safeJson(value: unknown): unknown {
