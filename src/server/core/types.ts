@@ -182,11 +182,18 @@ export interface ActionExecutionResult {
   after?: unknown
 }
 
+export interface EventRiskInfo {
+  score: number
+  decision: 'throttle' | 'hold' | 'reject'
+  reasons: Array<{ code: string; detail: string; points: number }>
+}
+
 export interface EventProcessingResult {
   eventId: string
-  status: 'processed' | 'failed' | 'duplicate' | 'skipped'
+  status: 'processed' | 'failed' | 'duplicate' | 'skipped' | 'held' | 'rejected'
   error?: string
   traceId?: string
+  risk?: EventRiskInfo
   actions: ActionExecutionResult[]
   stateDelta: {
     xpAwarded: number

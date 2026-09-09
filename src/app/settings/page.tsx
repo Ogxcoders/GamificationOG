@@ -12,6 +12,7 @@ import { ImportExportCard } from '@/components/settings/io-card'
 import { SsoCard } from '@/components/settings/sso-card'
 import { ScimCard } from '@/components/settings/scim-card'
 import { PromoteCard } from '@/components/settings/promote-card'
+import { RiskCard } from '@/components/settings/risk-card'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -189,6 +190,9 @@ export default function SettingsPage() {
 
         {/* Environment promotion (§ Mode C) */}
         <PromoteCard />
+
+        {/* Risk engine / anti-cheat (§74) */}
+        <RiskCard />
 
         {/* Integration snippet */}
         <Card>

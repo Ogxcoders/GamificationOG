@@ -85,7 +85,7 @@ export async function getPrometheusMetrics(): Promise<string> {
   ])
 
   // domain counters (global — the endpoint is admin-authenticated)
-  const [users, events, traces, rules, ruleExec, actions, webhooks, proposals, sessions, failures, recentEvents] =
+  const [users, events, traces, rules, ruleExec, actions, webhooks, proposals, sessions, failures, recentEvents, riskFlags, riskOpen, riskHeld] =
     await Promise.all([
       db.appUser.count(),
       db.event.count(),
@@ -98,6 +98,9 @@ export async function getPrometheusMetrics(): Promise<string> {
       db.adminSession.count({ where: { expiresAt: { gt: new Date() } } }),
       db.auditLog.count({ where: { action: 'admin.login_failed' } }),
       db.event.count({ where: { receivedAt: { gte: new Date(Date.now() - 24 * 3600_000) } } }),
+      db.riskFlag.count(),
+      db.riskFlag.count({ where: { status: 'open' } }),
+      db.event.count({ where: { status: 'held' } }),
     ])
 
   push('gog_users_total', 'Registered app users', 'counter', [{ value: users }])
@@ -111,6 +114,9 @@ export async function getPrometheusMetrics(): Promise<string> {
   push('gog_webhook_deliveries_total', 'Webhook delivery attempts', 'counter', [{ value: webhooks }])
   push('gog_admin_sessions_active', 'Active admin sessions', 'gauge', [{ value: sessions }])
   push('gog_login_failures_total', 'Failed admin logins (audited)', 'counter', [{ value: failures }])
+  push('gog_risk_flags_total', 'Risk engine flags raised (§74 anti-cheat)', 'counter', [{ value: riskFlags }])
+  push('gog_risk_flags_open', 'Risk flags awaiting review', 'gauge', [{ value: riskOpen }])
+  push('gog_events_held', 'Events held by the risk engine', 'gauge', [{ value: riskHeld }])
 
   return `${lines.join('\n')}\n`
 }

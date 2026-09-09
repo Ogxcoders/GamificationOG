@@ -1285,3 +1285,51 @@ model SimRun {
 
   @@index([projectId, environmentId, startedAt])
 }
+
+// =====================================================================
+// 41. RISK ENGINE (§74) — fraud / abuse / anti-cheat
+// Event → Risk Analysis → Risk Score → Allow | Throttle | Hold | Reject
+// =====================================================================
+
+model RiskConfig {
+  id                     String   @id @default(cuid())
+  projectId              String
+  environmentId          String
+  enabled                Boolean  @default(true)
+  maxEventsPerMinute     Int      @default(240) // velocity guard (events/min per user)
+  maxEventsPerHour       Int      @default(2000) // velocity guard (events/hour per user)
+  minEventIntervalMs     Int      @default(10) // impossible-speed guard (server-authoritative)
+  maxDuplicatePayloads   Int      @default(10) // bot / reward farming guard
+  duplicateWindowMinutes Int      @default(10)
+  maxValueStddevs        Int      @default(8) // numeric outlier guard (leaderboard manipulation)
+  thresholdThrottle      Int      @default(40)
+  thresholdHold          Int      @default(60)
+  thresholdReject        Int      @default(80)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  @@unique([projectId, environmentId])
+}
+
+model RiskFlag {
+  id            String    @id @default(cuid())
+  projectId     String
+  environmentId String
+  eventRowId    String? // Event.id (row) of the flagged event
+  eventId       String? // Event.eventId (uuid)
+  appUserId     String?
+  eventType     String
+  score         Int
+  decision      String // throttle | hold | reject
+  reasonsJson   String    @default("[]") // [{code, detail, points}]
+  status        String    @default("open") // open | released | rejected | dismissed
+  resolvedBy    String? // admin user id
+  resolvedAt    DateTime?
+  resultJson    String? // outcome after release (processing result summary)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([projectId, environmentId, status, createdAt])
+  @@index([projectId, environmentId, decision])
+  @@index([appUserId])
+}

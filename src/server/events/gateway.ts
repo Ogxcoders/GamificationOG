@@ -236,6 +236,90 @@ export async function ingestEvent(params: IngestParams): Promise<EventProcessing
     }
   }
 
+  // ---- risk analysis (§74 fraud / abuse / anti-cheat) ----
+  // Event → Risk Analysis → Risk Score → Allow | Throttle | Hold | Reject.
+  // Fails open: any internal error lets the event through untouched.
+  try {
+    const { getRiskConfig, analyzeEventRisk, createRiskFlag } = await import('../security/risk')
+    const riskCfg = await getRiskConfig(projectId, environmentId)
+    if (riskCfg) {
+      const analysis = await analyzeEventRisk(
+        {
+          projectId,
+          environmentId,
+          appUserId,
+          eventRowId: event.id,
+          eventType: request.event_type,
+          payload: request.payload ?? {},
+          subjectId: request.subject_id ?? null,
+          occurredAt,
+        },
+        riskCfg,
+      )
+      if (analysis.verdict === 'reject' || analysis.verdict === 'hold') {
+        const status = analysis.verdict === 'reject' ? 'rejected' : 'held'
+        const reasonText = analysis.reasons.map((r) => `${r.code}: ${r.detail}`).join('; ')
+        await db.event.update({
+          where: { id: event.id },
+          data: { status, processingError: `Risk score ${analysis.score} — ${reasonText}` },
+        })
+        await createRiskFlag({
+          projectId,
+          environmentId,
+          eventRowId: event.id,
+          eventId,
+          appUserId,
+          eventType: request.event_type,
+          score: analysis.score,
+          decision: analysis.verdict,
+          reasons: analysis.reasons,
+        })
+        return {
+          eventId,
+          status,
+          error: `Event ${status} by risk engine (score ${analysis.score}).`,
+          risk: { score: analysis.score, decision: analysis.verdict, reasons: analysis.reasons },
+          actions: [],
+          stateDelta: emptyDelta(),
+        }
+      }
+      if (analysis.verdict === 'throttle') {
+        // Processed, but flagged for review and surfaced to the caller.
+        await createRiskFlag({
+          projectId,
+          environmentId,
+          eventRowId: event.id,
+          eventId,
+          appUserId,
+          eventType: request.event_type,
+          score: analysis.score,
+          decision: 'throttle',
+          reasons: analysis.reasons,
+        })
+        const result = await processEvent({
+          eventRowId: event.id,
+          eventId,
+          eventType: request.event_type,
+          eventVersion: event.eventVersion,
+          projectId,
+          environmentId,
+          appUserId,
+          subjectId: request.subject_id ?? null,
+          source: event.source,
+          occurredAt,
+          correlationId,
+          payload: request.payload ?? {},
+        })
+        return {
+          ...result,
+          risk: { score: analysis.score, decision: 'throttle', reasons: analysis.reasons },
+        }
+      }
+    }
+  } catch {
+    /* risk engine must never block ingestion (fail-open) */
+  }
+
   // ---- processing ----
   const result = await processEvent({
     eventRowId: event.id,
