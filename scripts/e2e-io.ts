@@ -127,13 +127,16 @@ console.log('\n▸ 3. Package validation + compatibility (§60)')
 // ============================
 console.log('\n▸ 4. Diff + strategies (skip / overwrite)')
 const modified = JSON.parse(JSON.stringify(pkg))
+const ts = Date.now().toString(36).slice(-5)
+const RULE_NAME = `E2E IO Imported Rule ${ts}`
+const ACH_CODE = `e2e_io_ach_${ts}`
 {
-  // modify one rule (priority), add one new rule + achievement
+  // modify one rule (priority), add one new rule + achievement (unique per run)
   for (const r of modified.resources.rules) {
     if (r.name === 'Complete task → XP + Coins') r.priority = 777
   }
   modified.resources.rules.push({
-    name: 'E2E IO Imported Rule',
+    name: RULE_NAME,
     description: 'created by import e2e',
     eventType: 'io.test.event',
     conditionsJson: { op: 'and', conditions: [] },
@@ -142,7 +145,7 @@ const modified = JSON.parse(JSON.stringify(pkg))
     status: 'draft',
   })
   modified.resources.achievements.push({
-    code: 'e2e_io_imported_achievement',
+    code: ACH_CODE,
     name: 'E2E IO Imported Achievement',
     description: 'created by import e2e',
     category: 'general',
@@ -180,12 +183,12 @@ console.log('\n▸ 5. Apply (transactional + audited)')
   // only the 2 new objects created; diverged rule untouched
   const rules = await call('/api/admin/rules?limit=500', { cookie: SID })
   const byName = Object.fromEntries((rules.json?.items ?? []).map((i: any) => [i.name, i]))
-  check('imported rule created (draft)', byName['E2E IO Imported Rule']?.status === 'draft')
+  check('imported rule created (draft)', byName[RULE_NAME]?.status === 'draft')
   check('diverged rule NOT overwritten under skip strategy', byName['Complete task → XP + Coins']?.priority === 100,
     `priority=${byName['Complete task → XP + Coins']?.priority}`)
 
   const achievements = await call('/api/admin/achievements', { cookie: SID })
-  const importedAch = (achievements.json?.items ?? []).find((a: any) => a.code === 'e2e_io_imported_achievement')
+  const importedAch = (achievements.json?.items ?? []).find((a: any) => a.code === ACH_CODE)
   check('imported achievement created (progress-style condition preserved)',
     importedAch?.status === 'active' && String(importedAch?.conditionsJson ?? '').includes('progressField'))
 
@@ -207,14 +210,18 @@ console.log('\n▸ 5. Apply (transactional + audited)')
   const again = await call('/api/admin/import', { cookie: SID, body: { package: modified, mode: 'dry-run', strategy: 'overwrite' } })
   check('re-import is fully idempotent (0 changes)', again.json?.preview?.summary?.create === 0 && again.json?.preview?.summary?.overwrite === 0)
 
-  // cleanup: remove imported objects + restore priority
-  await call(`/api/admin/rules/${byName2['E2E IO Imported Rule'].id}`, { cookie: SID, method: 'DELETE' })
-  await call(`/api/admin/achievements/${importedAch.id}`, { cookie: SID, method: 'DELETE' })
+  // cleanup: remove imported objects (hard delete: drafts delete directly,
+  // active achievements archive first then hard delete) + restore priority
+  await call(`/api/admin/rules/${byName2[RULE_NAME].id}`, { cookie: SID, method: 'DELETE' })
+  if (importedAch) {
+    await call(`/api/admin/achievements/${importedAch.id}`, { cookie: SID, method: 'DELETE' })
+    await call(`/api/admin/achievements/${importedAch.id}`, { cookie: SID, method: 'DELETE' }) // archived → hard delete
+  }
   await call(`/api/admin/rules/${byName2['Complete task → XP + Coins'].id}`, { cookie: SID, method: 'PATCH', body: { priority: 100 } })
   const rulesFinal = await call('/api/admin/rules?limit=500', { cookie: SID })
   const finalByName = Object.fromEntries((rulesFinal.json?.items ?? []).map((i: any) => [i.name, i]))
   check('cleanup: state restored (priority 100, imported objects gone)',
-    finalByName['Complete task → XP + Coins']?.priority === 100 && !finalByName['E2E IO Imported Rule'])
+    finalByName['Complete task → XP + Coins']?.priority === 100 && !finalByName[RULE_NAME])
 }
 
 // ============================

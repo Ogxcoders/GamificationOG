@@ -36,7 +36,7 @@ The universal feedback loop — **EVENT → CONTEXT → CONDITION → DECISION �
 | **Identity** | Anonymous + named users, identify, anonymous→known **identity merge with progress preservation**, sessions, API keys with scopes |
 | **Event system** | Gateway with schema registry + payload validation, idempotency keys, batch ingestion, replay/reprocess, correlation/causation chains |
 | **Context engine** | Full evaluation context: user, event, progression, wallets, inventory, segments, flags, experiment variants, time |
-| **Rule engine** | Declarative WHEN/IF/THEN, priority ordering, cooldowns, frequency caps, segment targeting, schedules, 17 comparison operators with nested and/or/not trees |
+| **Rule engine** | Declarative WHEN/IF/THEN, priority ordering, cooldowns, frequency caps, segment targeting, schedules, 17 comparison operators with nested and/or/not trees, **visual rule builder** (structured condition tree + typed action params with Visual ⇄ JSON toggle) |
 | **Formula engine** | Safe deterministic expression evaluator (no `eval`): arithmetic, ternary, `min/max/floor/ceil/round/abs/clamp/sqrt/pow/if`, formula-powered reward amounts |
 | **Action engine** | 13 registered actions (award_xp, add/spend_currency, grant_item, grant_reward, unlock_achievement, update_challenge_progress, update_streak, update_leaderboard, send_notification, set_user_attribute, set_user_variable, emit_event) with validation + idempotency + per-action error isolation |
 | **Progression** | Multi-track XP→level: linear, exponential, or custom formula |
@@ -51,8 +51,12 @@ The universal feedback loop — **EVENT → CONTEXT → CONDITION → DECISION �
 | **Notifications** | In-app channel, `{{variable}}` template interpolation, anti-spam rate limits |
 | **Observability** | **Decision traces** — every pipeline step recorded with inputs/outputs/durations; immutable audit log with actor types (human/system/plugin/ai); structured actionable errors |
 | **AI / MCP control plane** | Permission-scoped AI tool endpoints (rules/events/formulas/capabilities), Go MCP server (JSON-RPC 2.0, stdio + HTTP) + API gateway with rate limiting and circuit breaking, Rust core-engine with **bit-identical parity** to the TS engine |
+| **Pack system** | 8 built-in game-design bundles (daily-streak, productivity, learning, community, referral, competition, loyalty, RPG): preview with conflict detection, transactional install with lineage metadata, rollback-safe uninstall (pristine removed, user-modified archived) |
+| **Import / export** | Portable gamification-system packages (manifest + 11 resource kinds, natural-keyed): dry-run diff (create/overwrite/skip/identical), skip/overwrite strategies, transactional apply, full round-trip fidelity |
+| **CLI** | Operator companion (`bun run gog`): status, events tail, rules, formulas evaluate, capabilities, packs management, export/import, simulate — dual auth (API key / admin session), JSON mode |
+| **AI proposals** | MCP write-tools behind human approval (§66-67): agents propose validated changes (rules:propose scope), humans approve/reject in the dashboard; execution goes through the validated create path with dual audit lineage (proposal.approved + resource.created by `ai` actor) |
 | **Analytics** | Daily aggregate read models, rebuildable from raw events |
-| **Admin dashboard** | 16 areas: overview, events feed + schema registry, rules, challenges, achievements, streaks, rewards, economy + ledger, inventory, leaderboards, segments, experiments/flags/config, users explorer, analytics, traces viewer, audit log, playground simulator, settings/API keys, capability registry |
+| **Admin dashboard** | 18 areas: overview, events feed + schema registry, rules (visual builder), packs, AI proposals, challenges, achievements, streaks, rewards, economy + ledger, inventory, leaderboards, segments, experiments/flags/config, users explorer, analytics, traces viewer, audit log, playground simulator, settings/API keys + import/export, capability registry |
 | **Web SDK** | Zero-dependency TypeScript SDK with offline queue + batch flush + anonymous merge |
 | **Capability registry** | First-class discovery of all extension points (object types, events, actions, operators, formula functions) |
 
@@ -80,7 +84,16 @@ bun run dev            # http://localhost:3000
 #   owner@focusquest.app / gamification123   ← change immediately
 ```
 
-The seed creates a complete reference product — **FocusQuest**, a productivity app — using only platform primitives: 8 event schemas, 3 currencies, 3 items, 6 rewards, 6 rules, 4 challenges, 6 achievements, streaks with milestones, 3 leaderboards, 3 segments, an experiment, flags, remote config, a season, and 3 demo users.
+The seed creates a complete reference product — **FocusQuest**, a productivity app — using only platform primitives: 8 event schemas, 3 currencies, 3 items, 6 rewards, 6 rules, 4 challenges, 6 achievements, streaks with milestones, 3 leaderboards, 3 segments, an experiment, flags, remote config, a season, 3 demo users, and the 8-pack catalog.
+
+Operate from the terminal:
+
+```bash
+bun run gog status                          # health + counters + engine totals
+bun run gog simulate task.completed u1 '{"difficulty":"hard"}'   # full engine loop
+bun run gog packs preview daily-streak      # what a pack would create
+GOG_API_KEY=gog_... bun run gog rules list   # v1 surface (scope-checked)
+```
 
 ## The golden path (Customer Zero)
 
@@ -131,8 +144,10 @@ curl -X POST $BASE_URL/api/v1/events \
 | `GET /api/v1/users/{externalId}/state` | Complete state snapshot |
 | `GET /api/v1/leaderboards?code=` | Ranking view + around-me |
 | `GET /api/v1/flags?user=` | Flags, experiment variants, remote config, segments |
+| `POST /api/v1/proposals` | AI proposal: validated config change awaiting human approval (scope `rules:propose`) — MCP `propose_rule` backing |
+| `GET /api/v1/proposals` | Proposal status tracking for agents (scope `rules:propose` or `rules:read`) — MCP `list_proposals` backing |
 
-Admin API (`/api/admin/*`): session auth + generic validated CRUD for 17 resource types, events feed + replay, playground simulation, traces, audit, analytics, economy integrity + rebuild, API key management, capability registry, scope switching.
+Admin API (`/api/admin/*`): session auth + generic validated CRUD for 17 resource types, events feed + replay, playground simulation, traces, audit, analytics, economy integrity + rebuild, API key management, capability registry, scope switching, pack install/uninstall, package import/export, proposal approval queue.
 
 ## Repository layout
 
@@ -149,16 +164,21 @@ Admin API (`/api/admin/*`): session auth + generic validated CRUD for 17 resourc
 │   │   ├── progression/ challenges/ achievements/ streaks/ rewards/
 │   │   ├── economy/            # ledger-first + wallet projections
 │   │   ├── inventory/ leaderboards/ segments/ experiments/ notifications/
+│   │   ├── packs/              # pack catalog + install lifecycle (§57)
+│   │   ├── io/                # package exporter/importer (§59-60)
+│   │   ├── proposals/         # AI proposal service (§66-67)
 │   │   ├── analytics/ tracing(via traces) audit/ registry/
 │   │   └── admin/              # resource registry (generic CRUD + validation)
 │   ├── app/                    # dashboard pages + API routes
 │   ├── components/dashboard/   # shell, generic resource CRUD
-│   └── lib/                    # api helpers, auth, client api
+│   ├── components/rules/       # visual rule builder
+│   ├── components/settings/    # import/export card
+│   └── lib/                    # api helpers, auth, client api, rule catalog
 ├── sdk/web/                    # TypeScript web SDK (offline queue)
 ├── crates/                     # Rust core engine (gog-engine CLI): formulas, progression, ranking, rules, simulation — parity-tested against the TS engine
 ├── services/gateway/           # Go API gateway: rate limiting, circuit breaker, correlation ids
 ├── services/mcp-server/        # Go MCP server (JSON-RPC 2.0): AI agent tools over the v1 API
-└── scripts/seed.ts             # Customer Zero reference seed
+└── scripts/                    # seed, cli.ts (bun run gog), e2e suites
 ```
 
 ## Architectural invariants (enforced)
@@ -176,9 +196,8 @@ Admin API (`/api/admin/*`): session auth + generic validated CRUD for 17 resourc
 - ✅ Phase 1 — vertical slice: events → rules → actions → state → traces → UI → SDK
 - ✅ Phase 2 — challenges, achievements, streaks, progression, economy, inventory, leaderboards, analytics, notifications
 - ✅ Phase 3 (core) — segments, experiments, feature flags, remote config
-- ✅ Phase 4 (partial) — MCP/AI control plane (scoped tool endpoints + Go MCP server + gateway), Rust core-engine parity, monetization (offers, paywalls, subscriptions, entitlements, webhooks, personalization)
-- 🔜 Phase 4 (rest) — visual UI builder, packs, plugins, import/export, CLI
-- 🔜 Phase 5 — SSO, SCIM, multi-region, enterprise hardening
+- ✅ Phase 4 — **complete**: MCP/AI control plane (scoped tool endpoints + Go MCP server + gateway), Rust core-engine parity, monetization, **visual rule builder, pack system, import/export, CLI, AI proposals with human approval**
+- 🔜 Phase 5 — SSO, SCIM, multi-region, plugins/marketplace, enterprise hardening
 
 ## AI / MCP integration
 
@@ -190,7 +209,9 @@ AI agents operate the platform through **permission-scoped domain tools** (Maste
 { "method": "tools/call", "params": { "name": "evaluate_formula", "arguments": { "expr": "20 + (user.level * 5)" } } }
 ```
 
-Tools: `list_rules`, `get_user_state`, `simulate_event`, `list_events`, `evaluate_formula`, `leaderboard`, `list_capabilities` — each maps to a scope-checked v1 API call, so agents inherit the platform's auth, audit and idempotency guarantees. Configuration changes stay in the human-owned dashboard; agents observe and simulate.
+Tools: `list_rules`, `get_user_state`, `simulate_event`, `list_events`, `evaluate_formula`, `leaderboard`, `list_capabilities`, `propose_rule`, `list_proposals` — each maps to a scope-checked v1 API call, so agents inherit the platform's auth, audit and idempotency guarantees.
+
+**Write-tools behind approval (§66-67):** `propose_rule` submits a validated configuration change as a *pending proposal* (scope `rules:propose`) — the AI never writes directly. Humans review the queue in **Dashboard → AI Proposals** (payload + rationale + decision notes) and approve/reject; approval executes through the same validated create path used by manual configuration, producing dual audit lineage: `proposal.approved` (human actor) and `rule.created` (ai actor).
 
 The Rust core engine (`crates/`, `cargo build` → `./target/debug/gog-engine`) provides the same formula/progression/ranking semantics as the TypeScript engine — verified by the parity suite (`bun scripts/e2e-rust-parity.ts`, 33 checks incl. bit-identical simulation replay).
 
