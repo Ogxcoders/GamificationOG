@@ -12,8 +12,10 @@ export async function GET(req: NextRequest) {
     const admin = await requireAdmin(req)
     const url = new URL(req.url)
     const limit = Math.min(Number(url.searchParams.get('limit') ?? 100) || 100, 500)
+    const action = url.searchParams.get('action') // optional exact/prefix filter, e.g. "sso."
 
     const entries = await db.auditLog.findMany({
+      where: action ? { action: { startsWith: action } } : undefined,
       orderBy: { createdAt: 'desc' },
       take: limit,
     })

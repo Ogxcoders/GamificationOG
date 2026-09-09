@@ -354,7 +354,7 @@ console.log('\n▸ 7. Disabled engine = plain pass-through')
 // ---------- 8. Audit trail ----------
 console.log('\n▸ 8. Audit trail for risk actions')
 {
-  const audit = await call('/api/admin/audit/list?limit=100', { cookie: SID })
+  const audit = await call('/api/admin/audit/list?action=risk.&limit=100', { cookie: SID })
   const entries = audit.json?.entries ?? audit.json?.logs ?? []
   const riskEntries = entries.filter((e: any) => String(e.action ?? '').startsWith('risk.'))
   check('risk.config.update audited', riskEntries.some((e: any) => e.action === 'risk.config.update'))

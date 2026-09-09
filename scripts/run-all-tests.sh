@@ -9,7 +9,28 @@ cd "$(dirname "$0")/.."
 BASE="${1:-http://localhost:3000}"
 LOG=.zscripts/test-run.log
 mkdir -p "$(dirname "$LOG")"
-SUITES=(e2e-verify e2e-features e2e-sdk e2e-db e2e-monetization e2e-mcp e2e-packs e2e-io e2e-cli)
+SUITES=(
+  e2e-verify
+  e2e-features
+  e2e-sdk
+  e2e-db
+  e2e-monetization
+  e2e-mcp
+  e2e-packs
+  e2e-plugins
+  e2e-io
+  e2e-cli
+  e2e-security
+  e2e-ops
+  e2e-sso
+  e2e-scim
+  e2e-region
+  e2e-promote
+  e2e-fraud
+  e2e-replay
+  e2e-realtime
+  e2e-dr
+)
 declare -A RESULTS
 
 # already running? else start one

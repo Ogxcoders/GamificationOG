@@ -240,7 +240,7 @@ console.log('\n▸ 5. Failure paths')
 // ---------- 6. Audit trail ----------
 console.log('\n▸ 6. SSO audit trail')
 {
-  const audit = await call('/api/admin/audit/list?limit=100', { cookie: SID, redirect: 'follow' })
+  const audit = await call('/api/admin/audit/list?action=sso.&limit=100', { cookie: SID, redirect: 'follow' })
   const entries = audit.json?.entries ?? []
   const actions = entries.map((a: any) => a.action)
   check('sso.connection_created audited', actions.includes('sso.connection_created'))

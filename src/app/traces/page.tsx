@@ -5,6 +5,7 @@
  * Every pipeline step: context build, rule evaluations, action executions.
  */
 import { useCallback, useEffect, useState } from 'react'
+import { Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Loader2, RefreshCw, Activity, ChevronRight, ChevronDown, Timer, Layers, Zap } from 'lucide-react'
 import { apiGet, formatRelative } from '@/lib/client-api'
@@ -65,6 +66,15 @@ const STEP_ICONS: Record<string, string> = {
 }
 
 export default function TracesPage() {
+  // useSearchParams requires a Suspense boundary for static prerendering
+  return (
+    <Suspense fallback={null}>
+      <TracesPageInner />
+    </Suspense>
+  )
+}
+
+function TracesPageInner() {
   const auth = useAuthGuard()
   const searchParams = useSearchParams()
   const [traces, setTraces] = useState<TraceListItem[]>([])

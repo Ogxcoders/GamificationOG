@@ -632,11 +632,14 @@ export async function processEvent(
   // Rule executions are recorded in BOTH live and replay mode: frequency
   // caps + cooldowns must see them to reproduce original decisions.
   // In replay mode executedAt is pinned to the event time so period windows
-  // (daily caps etc.) behave exactly as they did originally.
+  // (daily caps etc.) behave exactly as they did originally, and the
+  // execution links to the "replay:<runId>" marker instead of a live trace
+  // (§102: rebuilds create no decision traces, but referential linkage is
+  // preserved so every execution remains attributable).
   await recordRuleExecutions(
     ruleOutcomes.map((o) => ({ ...o, actions: o.actions.map((a) => ({ action: a.action, status: a.status, detail: a.detail })) })),
     params.eventRowId,
-    opts.replay ? undefined : traceId,
+    traceId,
     opts.replay ? params.occurredAt : undefined,
   )
 

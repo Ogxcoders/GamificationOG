@@ -222,7 +222,7 @@ console.log('\n▸ 6. Run history and audit trail')
   check('history shows dry-run and apply runs', runs.some((r: any) => r.dryRun) && runs.some((r: any) => !r.dryRun))
   check('history carries verdicts', runs.every((r: any) => r.verdict === null || typeof r.verdict === 'string'))
 
-  const audit = await call('/api/admin/audit/list?limit=100', { cookie: SID })
+  const audit = await call('/api/admin/audit/list?action=replay.&limit=100', { cookie: SID })
   const entries = audit.json?.entries ?? []
   check('replay.dry_run audited', entries.some((e: any) => e.action === 'replay.dry_run'))
   check('replay.apply audited', entries.some((e: any) => e.action === 'replay.apply'))

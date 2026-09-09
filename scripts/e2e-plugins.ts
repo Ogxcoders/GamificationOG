@@ -68,7 +68,7 @@ let KEY = ''
   const keyRes = await call('/api/admin/apikeys/list', {
     cookie: SID,
     method: 'POST',
-    body: { name: `e2e-plugins-${Date.now()}`, scopes: ['events:write', 'state:read', 'events:read'] },
+    body: { name: `e2e-plugins-${Date.now()}`, scopes: ['events:write', 'state:read', 'events:read', 'registry:read'] },
   })
   KEY = keyRes.json?.key?.key ?? ''
   check('API key created', !!KEY)

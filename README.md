@@ -55,6 +55,10 @@ The universal feedback loop — **EVENT → CONTEXT → CONDITION → DECISION �
 | **Import / export** | Portable gamification-system packages (manifest + 11 resource kinds, natural-keyed): dry-run diff (create/overwrite/skip/identical), skip/overwrite strategies, transactional apply, full round-trip fidelity |
 | **CLI** | Operator companion (`bun run gog`): status, events tail, rules, formulas evaluate, capabilities, packs management, export/import, simulate — dual auth (API key / admin session), JSON mode |
 | **AI proposals** | MCP write-tools behind human approval (§66-67): agents propose validated changes (rules:propose scope), humans approve/reject in the dashboard; execution goes through the validated create path with dual audit lineage (proposal.approved + resource.created by `ai` actor) |
+| **Anti-cheat / risk engine** | Universal risk analysis on every live event (§74): velocity (per-minute/hour), impossible-speed, duplicate-payload farming, numeric value anomalies (leaderboard manipulation), multi-account signals → 0-100 score → **allow / throttle / hold / reject**; held events wait in a human review queue (release fires side effects exactly once, reject never); fail-open by design; per-environment config + settings UI card + risk metrics |
+| **Recovery / replay** | Projection rebuild from stored events (§102): validate → reset per-user state → side-effect-isolated replay (no webhooks/metrics/traces; rule-executions re-recorded at original event times so caps reproduce) → before/after drift report → dry-run rollback vs apply promote; admin API + run history |
+| **Realtime (SSE)** | Live stream over Server-Sent Events (§78): API-key auth (header or EventSource `?key=`), project/env-scoped topic subscriptions with prefix + wildcard, monotonic seq ordering, Last-Event-ID reconnect replay from a bounded ring, 15s heartbeats, bounded-queue backpressure; `event.processed` + `leaderboard:<name>` fan-out on live ingestion only; SDK `stream()` helper |
+| **Disaster recovery** | Verified backup/restore (§101): online `VACUUM INTO` snapshot + integrity check + sha256/row-count manifest + retention pruning; restore modes (verify-only / `--target` drill / `--confirm` live swap with safety copy); tamper + corruption detection; RPO/RTO runbooks + scheduled drill cron (docs/DISASTER_RECOVERY.md) |
 | **Analytics** | Daily aggregate read models, rebuildable from raw events |
 | **Admin dashboard** | 18 areas: overview, events feed + schema registry, rules (visual builder), packs, AI proposals, challenges, achievements, streaks, rewards, economy + ledger, inventory, leaderboards, segments, experiments/flags/config, users explorer, analytics, traces viewer, audit log, playground simulator, settings/API keys + import/export, capability registry |
 | **Web SDK** | Zero-dependency TypeScript SDK with offline queue + batch flush + anonymous merge |
@@ -178,7 +182,9 @@ Admin API (`/api/admin/*`): session auth + generic validated CRUD for 17 resourc
 ├── crates/                     # Rust core engine (gog-engine CLI): formulas, progression, ranking, rules, simulation — parity-tested against the TS engine
 ├── services/gateway/           # Go API gateway: rate limiting, circuit breaker, correlation ids
 ├── services/mcp-server/        # Go MCP server (JSON-RPC 2.0): AI agent tools over the v1 API
-└── scripts/                    # seed, cli.ts (bun run gog), e2e suites
+├── backups/                   # §101 snapshots (gitignored)
+├── docs/DISASTER_RECOVERY.md  # RPO/RTO + backup/restore runbooks
+└── scripts/                    # seed, cli.ts (bun run gog), backup/restore, 21 e2e suites (bash scripts/run-all-tests.sh)
 ```
 
 ## Architectural invariants (enforced)
@@ -197,7 +203,8 @@ Admin API (`/api/admin/*`): session auth + generic validated CRUD for 17 resourc
 - ✅ Phase 2 — challenges, achievements, streaks, progression, economy, inventory, leaderboards, analytics, notifications
 - ✅ Phase 3 (core) — segments, experiments, feature flags, remote config
 - ✅ Phase 4 — **complete**: MCP/AI control plane (scoped tool endpoints + Go MCP server + gateway), Rust core-engine parity, monetization, **visual rule builder, pack system, import/export, CLI, AI proposals with human approval**
-- 🔜 Phase 5 — SSO, SCIM, multi-region, plugins/marketplace, enterprise hardening
+- ✅ Phase 5 — **complete**: SSO (OIDC + PKCE + JIT), SCIM 2.0 provisioning, logical regions/data residency, plugins + marketplace, security hardening (rate limiting, login lockout, security headers), observability (health + Prometheus metrics), environment promotion
+- ✅ Phase 6 — **complete (production hardening)**: anti-cheat risk engine (§74), event replay/projection rebuild (§102), realtime SSE (§78), disaster recovery (§101) — **full platform E2E: 21 suites, 849 checks, all green**
 
 ## AI / MCP integration
 
