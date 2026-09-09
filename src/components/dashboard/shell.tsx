@@ -11,7 +11,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard, Zap, GitBranch, Trophy, Target, Flame, Gift, Coins,
   Package, BarChart3, Users, PieChart, Activity, ScrollText, FlaskConical,
-  Settings, Blocks, LogOut, Gamepad2, ShieldCheck, ChevronDown, Menu, Loader2, CreditCard,
+  Settings, Blocks, LogOut, Gamepad2, ShieldCheck, ChevronDown, Menu, Loader2, CreditCard, Puzzle,
 } from 'lucide-react'
 import { apiGet, apiPost } from '@/lib/client-api'
 import { Button } from '@/components/ui/button'
@@ -52,6 +52,7 @@ const NAV_GROUPS: Array<{ title: string; items: NavItem[] }> = [
     items: [
       { href: '/rules', label: 'Rules', icon: GitBranch, hint: 'WHEN / IF / THEN' },
       { href: '/packs', label: 'Packs', icon: Package, hint: 'Behavior bundles' },
+      { href: '/marketplace', label: 'Marketplace', icon: Puzzle, hint: 'Packs + plugins registry' },
       { href: '/proposals', label: 'AI Proposals', icon: ShieldCheck, hint: 'Approval queue' },
       { href: '/challenges', label: 'Challenges', icon: Target },
       { href: '/achievements', label: 'Achievements', icon: Trophy },

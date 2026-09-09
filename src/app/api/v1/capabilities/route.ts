@@ -16,6 +16,9 @@ export async function GET(req: NextRequest) {
   try {
     const auth = await requireApiKey(req)
     requireScope(auth, 'registry:read')
+    // hydrate enabled plugins so the registry reflects live custom actions
+    const { ensureRuntimePlugins } = await import('@/server/plugins/service')
+    await ensureRuntimePlugins().catch(() => null)
     return json({
       registry: getFullRegistry(),
       summary: getRegistrySummary(),

@@ -92,6 +92,16 @@ export interface IngestParams {
 
 export async function ingestEvent(params: IngestParams): Promise<EventProcessingResult> {
   const { projectId, environmentId, request } = params
+
+  // Hydrate enabled plugins (custom actions/events) before processing so
+  // rules referencing plugin capabilities execute after a process restart.
+  try {
+    const { ensureRuntimePlugins } = await import('@/server/plugins/service')
+    await ensureRuntimePlugins()
+  } catch {
+    // plugin hydration must never block ingestion
+  }
+
   const emptyDelta = () => ({
     xpAwarded: 0,
     levelUps: [] as EventProcessingResult['stateDelta']['levelUps'],

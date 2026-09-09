@@ -71,10 +71,50 @@ export type ActionHandler = (
   ctx: ActionContext,
 ) => Promise<{ detail: string; before?: unknown; after?: unknown; skipped?: boolean }>
 
-const actionRegistry = new Map<string, { handler: ActionHandler; description: string; domain: string }>()
+// The action registry lives on globalThis so every route bundle (Turbopack
+// compiles routes independently in dev) shares ONE live registry — plugin
+// actions registered by one route are visible to rule validation and engine
+// execution in every other route.
+const G = globalThis as unknown as {
+  __gogActionRegistry?: Map<string, { handler: ActionHandler; description: string; domain: string; pluginId?: string }>
+}
+const actionRegistry: Map<string, { handler: ActionHandler; description: string; domain: string; pluginId?: string }> =
+  G.__gogActionRegistry ?? (G.__gogActionRegistry = new Map())
 
 function registerAction(type: string, domain: string, description: string, handler: ActionHandler) {
   actionRegistry.set(type, { handler, description, domain })
+}
+
+// ---------------------------------------------------------------------------
+// Plugin SDK surface (§54/§110): external capability registration
+// ---------------------------------------------------------------------------
+
+/** Register a plugin-provided action (first-party trusted code, validated manifest). */
+export function registerExternalAction(
+  type: string,
+  domain: string,
+  description: string,
+  handler: ActionHandler,
+  pluginId: string,
+) {
+  actionRegistry.set(type, { handler, description, domain, pluginId })
+}
+
+/** Remove all actions registered by a plugin (disable/uninstall teardown). */
+export function unregisterActionsByPlugin(pluginId: string): number {
+  let removed = 0
+  for (const [type, meta] of actionRegistry) {
+    if (meta.pluginId === pluginId) {
+      actionRegistry.delete(type)
+      removed++
+    }
+  }
+  return removed
+}
+
+/** Which plugin (if any) provides a given action type. */
+export function actionProvider(type: string): string | undefined {
+  return actionRegistry.get(type)?.pluginId
 }
 
 // award_xp — progression domain
@@ -401,6 +441,7 @@ export function getActionRegistry() {
     type,
     domain: meta.domain,
     description: meta.description,
+    plugin: meta.pluginId ?? null,
   }))
 }
 

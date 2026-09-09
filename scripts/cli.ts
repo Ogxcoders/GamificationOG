@@ -417,6 +417,31 @@ async function cmdSimulate() {
   }
 }
 
+async function cmdPromote() {
+  const from = opts.from ?? requireArg(0, 'from-environment')
+  const to = opts.to ?? requireArg(1, 'to-environment')
+  const dryRun = opts['dry-run'] === 'true'
+  const r = await call('/api/admin/promote', {
+    auth: 'admin',
+    body: { from, to, dryRun: dryRun !== false },
+  })
+  if (r.status !== 200 && r.status !== 201) fail(`Promotion failed (${r.status}).`, r.json?.error?.message)
+  const result = r.json ?? {}
+  if (wantJson) return printJson(result)
+  header(`Environment promotion — ${from} → ${to}${dryRun ? ' (dry-run)' : ''}`)
+  const s = result.summary ?? {}
+  console.log(
+    `  ${GREEN}${s.create ?? 0} create${RESET} · ${AMBER}${s.overwrite ?? 0} overwrite${RESET} · ${s.skip ?? 0} skip · ${DIM}${s.identical ?? 0} identical${RESET}`,
+  )
+  for (const o of result.objects ?? []) {
+    if (o.action === 'identical') continue
+    const marker = o.action === 'create' ? `${GREEN}+${RESET}` : o.action === 'overwrite' ? `${AMBER}~${RESET}` : `${DIM}·${RESET}`
+    console.log(`  ${marker} ${o.resource.padEnd(14)} ${o.naturalKey}${o.reason ? ` ${DIM}(${truncate(o.reason, 50)})${RESET}` : ''}`)
+  }
+  if (!dryRun) ok(`promoted — transactional, audited (${result.applied ? 'applied' : 'not applied'})`)
+  else console.log(`  ${DIM}dry-run only — re-run without --dry-run to apply${RESET}`)
+}
+
 function cmdHelp() {
   console.log(`
 ${BOLD}GamificationOG CLI${RESET} — operator companion (§85)
@@ -433,6 +458,8 @@ ${BOLD}Commands:${RESET}
   packs preview|install|uninstall <slug>
   export [--out FILE]                 gamification system package (§59)
   import <FILE> [--dry-run] [--strategy skip|overwrite]
+  promote --from development --to production [--dry-run]
+                                     environment promotion via export→import(overwrite)
   simulate <type> <user> [JSON]       ingest an event, show state delta (events:write)
 
 ${BOLD}Options:${RESET}
@@ -457,6 +484,7 @@ const commands: Record<string, () => Promise<void> | void> = {
   packs: cmdPacks,
   export: cmdExport,
   import: cmdImport,
+  promote: cmdPromote,
   simulate: cmdSimulate,
 }
 

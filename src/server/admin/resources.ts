@@ -73,7 +73,10 @@ export const RESOURCES: Record<string, ResourceConfig> = {
     auditType: 'rule',
     fields: ['name', 'description', 'eventType', 'conditionsJson', 'actionsJson', 'priority', 'cooldownSeconds', 'frequencyCap', 'frequencyPeriod', 'segmentId', 'validFrom', 'validTo', 'status', 'version', 'metadataJson'],
     requiredOnCreate: ['name', 'eventType', 'actionsJson'],
-    validate: (d) => {
+    validate: async (d) => {
+      // hydrate enabled plugins first so rules referencing plugin actions validate
+      const { ensureRuntimePlugins } = await import('@/server/plugins/service')
+      await ensureRuntimePlugins().catch(() => null)
       if (d.eventType !== undefined && !/^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$/.test(String(d.eventType))) {
         throw new PlatformError({
           code: 'INVALID_EVENT_TYPE',
